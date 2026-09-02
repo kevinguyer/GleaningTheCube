@@ -154,7 +154,7 @@ header.top .tag { color: var(--muted); font-size: 15px; }
 }
 .turncap .cap-tok { font-family: "IBM Plex Mono", Consolas, monospace; font-weight: 600; color: var(--accent); }
 
-.statusrow { display: flex; align-items: center; gap: 10px; min-height: 26px; }
+.statusrow { display: flex; align-items: center; gap: 10px; min-height: 26px; flex-wrap: wrap; }
 #solvedBadge {
   font-size: 13px; font-weight: 700;
   color: var(--ok); background: var(--ok-soft);
@@ -355,6 +355,35 @@ footer.foot {
   color: var(--muted); font-size: 13.5px;
 }
 
+.timer {
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: 14.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.timer.stopped { color: var(--accent); }
+.statsrow { font-size: 12.5px; color: var(--muted); }
+.statsrow b { color: var(--ink); font-weight: 700; }
+
+#cheatsheet { display: none; }
+@media print {
+  header.top, .app, footer.foot { display: none !important; }
+  body { background: #fff !important; }
+  #cheatsheet {
+    display: block !important;
+    color: #111;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  #cheatsheet h2 { font-size: 20px; margin: 0 0 4px; }
+  #cheatsheet .cnote { font-size: 11px; color: #444; margin: 3px 0 10px; }
+  #cheatsheet .cgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  #cheatsheet .ccard { border: 1px solid #bbb; border-radius: 8px; padding: 8px 11px; break-inside: avoid; }
+  #cheatsheet .ccard h4 { margin: 0 0 4px; font-size: 13px; font-family: "Bricolage Grotesque", sans-serif; }
+  #cheatsheet .ccard p { margin: 0 0 5px; font-size: 11px; line-height: 1.45; max-width: none; }
+  #cheatsheet code { font-family: "IBM Plex Mono", Consolas, monospace; font-size: 11.5px; font-weight: 600; }
+  #cheatsheet .ccard span { font-size: 10.5px; color: #555; }
+}
+
 @media (max-width: 980px) {
   .app { grid-template-columns: 1fr; padding: 12px 14px 50px; }
   .cubepanel { position: static; }
@@ -366,6 +395,7 @@ footer.foot {
 <header class="top">
   <h1>Gleaning the Cube</h1>
   <span class="tag">an interactive Rubik&rsquo;s cube tutorial</span>
+  <button class="act" id="btnCheat" style="margin-left:auto" title="Print a one-page reference card of every stage and algorithm">Cheat sheet</button>
 </header>
 
 <div class="app">
@@ -380,6 +410,10 @@ footer.foot {
       <span id="solvedBadge" hidden>&#10003; Solved</span>
       <span id="stageHint" style="font-size:13.5px;color:var(--muted)"></span>
       <span class="spacer"></span>
+      <span id="timerDisp" class="timer" hidden>0:00.0</span>
+      <label class="hinttoggle" title="A soft click per turn and a chime when you solve it">
+        <input type="checkbox" id="soundToggle" checked> Sound
+      </label>
       <label class="hinttoggle" title="The arrow and layer spotlight shown during turns and when hovering a turn button">
         <input type="checkbox" id="overlayToggle" checked> Turn hints
       </label>
@@ -393,6 +427,8 @@ footer.foot {
       <button class="act" id="btnUndo">Undo</button>
       <button class="act" id="btnReset">Reset to solved</button>
     </div>
+
+    <div id="statsRow" class="statsrow" hidden></div>
 
     <div class="algbar">
       <span class="lbl" id="algLabel">Sequence</span>
@@ -421,6 +457,22 @@ footer.foot {
     <div id="stages"></div>
   </section>
 </div>
+
+<section id="cheatsheet" aria-hidden="true">
+  <h2>Gleaning the Cube &mdash; pocket reference</h2>
+  <p class="cnote">Hold the yellow center up for the whole solve. A letter is a quarter turn of that face, clockwise as if you were looking straight at it; <code>'</code> means counterclockwise, <code>2</code> a half turn. Faces: <code>U</code>p <code>D</code>own <code>L</code>eft <code>R</code>ight <code>F</code>ront <code>B</code>ack.</p>
+  <div class="cgrid">
+    <div class="ccard"><h4>1 &middot; The Daisy</h4><p>Four white edge stickers around the yellow center. From the bottom (white down): half-turn its face. From the middle: turn the face its <em>other</em> sticker touches until it reaches the top. Top but sideways: drop it into the middle, lift it up next door.</p></div>
+    <div class="ccard"><h4>2 &middot; White Cross</h4><p>Turn the top until a petal&rsquo;s side color sits over the matching center, then half-turn that face to plant it. Repeat for all four petals.</p><code>F2</code> <span>(per aligned petal)</span></div>
+    <div class="ccard"><h4>3 &middot; First Layer Corners</h4><p>Find a white corner in the top layer, park it directly above its home slot, hold that slot at the front-right. White facing right &times;1, up &times;3, toward you &times;5.</p><code>R U R' U'</code></div>
+    <div class="ccard"><h4>4 &middot; Middle Layer Edges</h4><p>Pick a top edge with no yellow; match its front sticker to its center. Top sticker matches the right center &rarr; right insert; the left center &rarr; left insert.</p><code>U R U' R' U' F' U F</code> <span>(right)</span><br><code>U' L' U L U F U' F'</code> <span>(left)</span></div>
+    <div class="ccard"><h4>5 &middot; Yellow Cross</h4><p>Only edges count. Line: hold it running left&ndash;right. L-shape: hug it into the back-left. Dot: line-alg, <code>U2</code>, then L-alg.</p><code>F R U R' U' F'</code> <span>(line)</span><br><code>F U R U' R' F'</code> <span>(L)</span></div>
+    <div class="ccard"><h4>6 &middot; Yellow Face</h4><p>The Sune. Fish: lone yellow-up corner at front-left with the front-right corner&rsquo;s yellow facing you. Other patterns: Sune, re-aim, Sune again.</p><code>R U R' U R U2 R'</code></div>
+    <div class="ccard"><h4>7 &middot; Corner Places</h4><p>A corner is placed when its side colors match both neighboring faces. Hold a placed corner at the front-right as the anchor; run once or twice. None placed? Run it once anywhere, then look again.</p><code>U R U' L' U R' U' L</code></div>
+    <div class="ccard"><h4>8 &middot; Last Edges</h4><p>Hold the one solved edge at the back. The rest cycle front&rarr;right, right&rarr;left, left&rarr;front; repeat if they went the wrong way. Finish with a top-layer turn to click home.</p><code>R U' R U R U R U' R' U' R2</code></div>
+  </div>
+  <p class="cnote">No skateboards were harmed in the solving of this cube.</p>
+</section>
 
 <footer class="foot">
   No skateboards were harmed in the solving of this cube.
@@ -596,6 +648,102 @@ const ARROW_SVG = `<svg viewBox="0 0 100 100" aria-hidden="true">
   </g>
 </svg>`;
 function arrowTransform(k) { return faceTransform(k).replace('translateZ(33px)', 'translateZ(114px)'); }
+/* ---- sound: synthesized, no assets ---- */
+let soundOn = true;
+try { soundOn = localStorage.getItem('gtc-sound') !== 'off'; } catch (e) {}
+const soundToggle = document.getElementById('soundToggle');
+soundToggle.checked = soundOn;
+soundToggle.addEventListener('change', () => {
+  soundOn = soundToggle.checked;
+  try { localStorage.setItem('gtc-sound', soundOn ? 'on' : 'off'); } catch (e) {}
+  if (soundOn) clickSound(); // little confirmation
+});
+let audioCtx = null;
+function ac() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function clickSound() {
+  if (!soundOn) return;
+  try {
+    const ctx = ac();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(320, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.06);
+    g.gain.setValueAtTime(0.1, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.07);
+    o.connect(g).connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.08);
+  } catch (e) {}
+}
+function chime() {
+  if (!soundOn) return;
+  try {
+    const ctx = ac();
+    [523.25, 659.25, 783.99].forEach((f, i) => { // C5 E5 G5
+      const t = ctx.currentTime + i * 0.09;
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.13, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      o.connect(g).connect(ctx.destination);
+      o.start(t); o.stop(t + 0.55);
+    });
+  } catch (e) {}
+}
+
+/* ---- solve timer + stats ---- */
+const timerDisp = document.getElementById('timerDisp');
+let timerStart = null, timerInterval = null;
+function fmtTime(ms) {
+  const t = ms / 1000, m = Math.floor(t / 60), s = t % 60;
+  return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1);
+}
+function startTimer() {
+  timerStart = performance.now();
+  timerDisp.hidden = false;
+  timerDisp.classList.remove('stopped');
+  timerDisp.textContent = '0:00.0';
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => { timerDisp.textContent = fmtTime(performance.now() - timerStart); }, 100);
+}
+function cancelTimer() {
+  clearInterval(timerInterval);
+  timerInterval = null; timerStart = null;
+  timerDisp.hidden = true;
+}
+function stopTimerRecord() {
+  if (timerStart === null) return;
+  const ms = performance.now() - timerStart;
+  clearInterval(timerInterval);
+  timerInterval = null; timerStart = null;
+  timerDisp.textContent = fmtTime(ms);
+  timerDisp.classList.add('stopped');
+  recordSolve(ms);
+}
+let stats = { times: [] };
+try { stats = JSON.parse(localStorage.getItem('gtc-stats') || '{"times":[]}'); } catch (e) {}
+if (!Array.isArray(stats.times)) stats = { times: [] };
+function recordSolve(ms) {
+  stats.times.push(Math.round(ms));
+  if (stats.times.length > 100) stats.times = stats.times.slice(-100);
+  try { localStorage.setItem('gtc-stats', JSON.stringify(stats)); } catch (e) {}
+  renderStats();
+}
+function renderStats() {
+  const el = document.getElementById('statsRow');
+  if (!stats.times.length) { el.hidden = true; return; }
+  const best = Math.min(...stats.times);
+  const last5 = stats.times.slice(-5);
+  const avg = last5.reduce((a, b) => a + b, 0) / last5.length;
+  el.hidden = false;
+  el.innerHTML = `Solves: <b>${stats.times.length}</b> &middot; Best: <b>${fmtTime(best)}</b> &middot; Avg of last ${last5.length}: <b>${fmtTime(avg)}</b>`;
+}
+
+document.getElementById('btnCheat').addEventListener('click', () => window.print());
+
 let overlayOn = true;
 try { overlayOn = localStorage.getItem('lbl-overlay') !== 'off'; } catch (e) {}
 const overlayToggle = document.getElementById('overlayToggle');
@@ -709,6 +857,7 @@ function animateToken(token, done) {
   document.documentElement.style.setProperty('--turnms', dur + 'ms');
   const affected = [];
   cubies.forEach((c, i) => { if (c.pos[ai] === s) affected.push(i); });
+  clickSound();
   showTurnFeedback(token, dur, affected);
   for (const i of affected) {
     const div = cubieEls[i];
@@ -827,6 +976,7 @@ function setQueue(tokens, label) {
 function loadCase(c) {
   playing = false; animating = false;
   celebrationArmed = false;
+  cancelTimer();
   currentCase = c;
   cubies = solvedState();
   for (const t of c.setupToks) commitToken(cubies, t);
@@ -854,6 +1004,7 @@ document.getElementById('btnScramble').addEventListener('click', () => {
   for (const t of toks) { commitToken(cubies, t); history.push(t); }
   paint();
   celebrationArmed = true;
+  startTimer();
   queue = []; qIndex = 0;
   renderAlgBar(toks, toks.length, 'Scramble');
   document.getElementById('btnReload').hidden = true;
@@ -887,6 +1038,7 @@ document.getElementById('btnDrill').addEventListener('click', () => {
   history = toks.slice();
   buildCube();
   celebrationArmed = true;
+  cancelTimer();
   queue = []; qIndex = 0;
   renderAlgBar([], 0, 'Last-layer drill');
   algTokensEl.innerHTML = '<span class="empty">Bottom two layers untouched &mdash; solve the top. (Stages 5&ndash;8.)</span>';
@@ -896,6 +1048,7 @@ document.getElementById('btnDrill').addEventListener('click', () => {
 document.getElementById('btnReset').addEventListener('click', () => {
   playing = false; animating = false;
   celebrationArmed = false;
+  cancelTimer();
   currentCase = null;
   cubies = solvedState();
   history = [];
@@ -1306,6 +1459,7 @@ const notationChips = document.getElementById('notationChips');
 let celebrationArmed = false;
 let wasSolved = true;
 function celebrate() {
+  chime();
   const badge = document.getElementById('solvedBadge');
   badge.classList.add('party');
   setTimeout(() => badge.classList.remove('party'), 1900);
@@ -1324,6 +1478,7 @@ function updateStatus() {
   document.getElementById('solvedBadge').hidden = !solvedNow;
   if (solvedNow && !wasSolved && celebrationArmed) {
     celebrationArmed = false;
+    stopTimerRecord(); // no-op for drills — only full scrambles start the clock
     celebrate();
   }
   wasSolved = solvedNow;
@@ -1344,5 +1499,6 @@ function updateStatus() {
 buildCube();
 setQueue([], '');
 updateStatus();
+renderStats();
 showStage(0);
 </script>
