@@ -1,0 +1,1348 @@
+<title>Gleaning the Cube</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+:root {
+  --bg: #F2F4F8;
+  --panel: #FFFFFF;
+  --panel2: #E9EDF4;
+  --ink: #1C2437;
+  --muted: #5B6478;
+  --line: #D9DEE9;
+  --accent: #C98F0A;
+  --accent-soft: #F5E3B3;
+  --ok: #1E7B45;
+  --ok-soft: #D9EFE2;
+  --chip-bg: #F5F7FB;
+  --shadow: 0 1px 2px rgba(28,36,55,.06), 0 8px 24px rgba(28,36,55,.07);
+  /* cube — same in both themes, it's a real object */
+  --plastic: #0E1116;
+  --cY: #FFD500; --cW: #F4F6F8; --cG: #009B48; --cB: #0046AD; --cR: #B71234; --cO: #FF5800;
+  --slate: #B9C2D2;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131722;
+    --panel: #1B2130;
+    --panel2: #232B40;
+    --ink: #E9ECF5;
+    --muted: #9AA3B8;
+    --line: #2C3450;
+    --accent: #E3A81C;
+    --accent-soft: #3B3113;
+    --ok: #4CC47E;
+    --ok-soft: #16311F;
+    --chip-bg: #222941;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    --slate: #4A5470;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131722;
+  --panel: #1B2130;
+  --panel2: #232B40;
+  --ink: #E9ECF5;
+  --muted: #9AA3B8;
+  --line: #2C3450;
+  --accent: #E3A81C;
+  --accent-soft: #3B3113;
+  --ok: #4CC47E;
+  --ok-soft: #16311F;
+  --chip-bg: #222941;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  --slate: #4A5470;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  margin: 0;
+}
+h1, h2, h3 { font-family: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif; text-wrap: balance; margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header.top {
+  display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  padding: 20px 28px 0;
+  max-width: 1280px; margin: 0 auto;
+}
+header.top h1 { font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
+header.top .tag { color: var(--muted); font-size: 15px; }
+
+.app {
+  display: grid;
+  grid-template-columns: 470px minmax(0, 1fr);
+  gap: 22px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px 28px 60px;
+  align-items: start;
+}
+
+/* ---------- cube panel ---------- */
+.cubepanel {
+  position: sticky; top: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+#scene {
+  height: 390px;
+  perspective: 1000px;
+  touch-action: none;
+  cursor: grab;
+  position: relative;
+  border-radius: 12px;
+  background: radial-gradient(ellipse at 50% 42%, var(--panel2), transparent 75%);
+  user-select: none;
+  -webkit-user-select: none;
+}
+#scene:active { cursor: grabbing; }
+#scene .hint {
+  position: absolute; bottom: 8px; left: 0; right: 0;
+  text-align: center; font-size: 12.5px; color: var(--muted);
+  pointer-events: none;
+}
+#cube {
+  position: absolute; left: 50%; top: 55%;
+  width: 0; height: 0;
+  transform-style: preserve-3d;
+}
+.cubie {
+  position: absolute;
+  width: 66px; height: 66px;
+  left: -33px; top: -33px;
+  transform-style: preserve-3d;
+}
+.cubie.anim { transition: transform var(--turnms, 200ms) cubic-bezier(.35,.1,.25,1); }
+.cface {
+  position: absolute; inset: 0;
+  background: var(--plastic);
+  border-radius: 7px;
+  backface-visibility: hidden;
+}
+.cface .stk {
+  position: absolute; inset: 3px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.15);
+}
+/* Layer turns stay animated even under reduced-motion: the rotation IS the lesson. */
+.cubie .stk { transition: filter 130ms; }
+#cube.dimming .cubie:not(.turning) .stk { filter: brightness(.72) saturate(.55); }
+.arrowplane {
+  position: absolute; width: 220px; height: 220px; left: -110px; top: -110px;
+  transform-style: preserve-3d; pointer-events: none;
+}
+.arrowspin { width: 100%; height: 100%; transition: transform var(--turnms, 200ms) cubic-bezier(.35,.1,.25,1); }
+.arrowspin svg { width: 100%; height: 100%; display: block; }
+.arrowspin.ccw svg { transform: scaleX(-1); }
+@keyframes hintCW { from { transform: rotateZ(-6deg); } to { transform: rotateZ(30deg); } }
+@keyframes hintCCW { from { transform: rotateZ(6deg); } to { transform: rotateZ(-30deg); } }
+.turncap {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow);
+  border-radius: 99px; padding: 4px 14px;
+  font-size: 13px; white-space: nowrap;
+  pointer-events: none; z-index: 5;
+}
+.turncap .cap-tok { font-family: "IBM Plex Mono", Consolas, monospace; font-weight: 600; color: var(--accent); }
+
+.statusrow { display: flex; align-items: center; gap: 10px; min-height: 26px; }
+#solvedBadge {
+  font-size: 13px; font-weight: 700;
+  color: var(--ok); background: var(--ok-soft);
+  border-radius: 99px; padding: 3px 12px;
+}
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(227, 168, 28, .55); }
+  50% { transform: scale(1.14); box-shadow: 0 0 0 12px rgba(227, 168, 28, 0); }
+}
+#solvedBadge.party { animation: badgePulse .9s ease-in-out 2; }
+.statusrow .spacer { flex: 1; }
+.hinttoggle {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--muted);
+  cursor: pointer; user-select: none;
+}
+.hinttoggle input { accent-color: var(--accent); margin: 0; }
+
+.movegrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.mvbtn {
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: 15px; font-weight: 600;
+  background: var(--chip-bg);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 9px;
+  padding: 7px 0;
+}
+.mvbtn:hover { border-color: var(--accent); }
+.mvbtn:active { transform: translateY(1px); }
+.mvbtn { position: relative; }
+.mvbtn[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: var(--bg);
+  font-family: "Atkinson Hyperlegible", sans-serif;
+  font-size: 12.5px; font-weight: 400; line-height: 1.35; text-align: left;
+  padding: 6px 10px; border-radius: 8px;
+  width: max-content; max-width: 210px; white-space: normal;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .12s;
+  z-index: 40;
+}
+.mvbtn[data-tip]:hover::after, .mvbtn[data-tip]:focus-visible::after { opacity: 1; visibility: visible; }
+
+.actionrow { display: flex; gap: 8px; flex-wrap: wrap; }
+.act {
+  background: var(--chip-bg);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 6px 14px;
+  font-size: 14.5px;
+}
+.act:hover { border-color: var(--accent); }
+.act.primary { background: var(--accent); border-color: var(--accent); color: #141003; font-weight: 700; }
+
+.algbar {
+  background: var(--panel2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.algbar .lbl { font-size: 12.5px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; font-weight: 700; }
+#algTokens { display: flex; flex-wrap: wrap; gap: 5px; min-height: 28px; align-items: center; }
+#algTokens .empty { color: var(--muted); font-size: 14px; }
+.tok {
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: 14.5px; font-weight: 600;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 7px;
+}
+.tok.done { opacity: .38; }
+.tok.playing { background: var(--accent); color: #141003; border-color: var(--accent); }
+.tok.hoverable { cursor: pointer; }
+.tok.hoverable:hover { box-shadow: 0 0 0 2px var(--accent); }
+.algctrl { display: flex; gap: 8px; align-items: center; }
+.algctrl select {
+  font: inherit; font-size: 13.5px;
+  background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px;
+}
+.freeform { display: flex; gap: 8px; }
+.freeform input {
+  flex: 1; min-width: 0;
+  font-family: "IBM Plex Mono", Consolas, monospace; font-size: 14px;
+  background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 9px;
+  padding: 7px 10px;
+}
+.freeform input::placeholder { color: var(--muted); font-family: "Atkinson Hyperlegible", sans-serif; }
+
+/* ---------- tutorial ---------- */
+.tutorial { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.rail { display: flex; flex-wrap: wrap; gap: 7px; }
+.stagechip {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 5px 13px 5px 7px;
+  font-size: 13.5px; font-weight: 700;
+}
+.stagechip:hover { border-color: var(--accent); }
+.stagechip.active { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.stagechip.done .num { background: var(--ok); color: #fff; }
+.stagechip.next { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.stagechip .num {
+  width: 21px; height: 21px; border-radius: 50%;
+  background: var(--panel2);
+  display: grid; place-items: center;
+  font-size: 11.5px;
+}
+.mini {
+  display: grid;
+  grid-template-columns: repeat(3, 7px);
+  grid-template-rows: repeat(3, 7px);
+  gap: 1px;
+}
+.mini i { border-radius: 1.5px; }
+.mini .w { background: var(--cW); box-shadow: inset 0 0 0 1px rgba(0,0,0,.2); }
+.mini .y { background: var(--cY); }
+.mini .g { background: var(--cG); }
+.mini .s { background: var(--slate); }
+
+.stage {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 26px 30px 30px;
+}
+.stage .eyebrow {
+  font-size: 12.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 6px;
+}
+.stage h2 { font-size: 30px; font-weight: 800; letter-spacing: -.015em; margin-bottom: 4px; }
+.stage .goal {
+  font-size: 16.5px; color: var(--muted);
+  margin: 0 0 14px;
+}
+.stage p, .stage li { max-width: 62ch; }
+.stage p { margin: 10px 0; }
+.stage ul, .stage ol { margin: 10px 0; padding-left: 22px; }
+.stage li { margin: 5px 0; }
+.alg {
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: .93em; font-weight: 600;
+  background: var(--chip-bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+.stagenav { display: flex; justify-content: space-between; gap: 10px; margin-top: 22px; }
+.stagenav .act { font-weight: 700; }
+
+.case {
+  background: var(--panel2);
+  border-radius: 13px;
+  padding: 15px 18px;
+  margin: 14px 0;
+}
+.case h3 { font-size: 17.5px; font-weight: 800; margin-bottom: 3px; }
+.case .desc { margin: 4px 0 10px; color: var(--ink); }
+.case .desc small, .smallnote { color: var(--muted); }
+.casealg { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin: 8px 0 12px; }
+.casebtns { display: flex; gap: 8px; flex-wrap: wrap; }
+.case .act { background: var(--panel); }
+.case .act.primary { background: var(--accent); }
+
+details.stuck {
+  margin-top: 18px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+details.stuck summary {
+  cursor: pointer; font-weight: 700; font-size: 15.5px;
+  font-family: "Bricolage Grotesque", sans-serif;
+}
+details.stuck[open] summary { margin-bottom: 6px; }
+
+.notegold {
+  border-left: 3px solid var(--accent);
+  padding: 2px 0 2px 14px;
+  margin: 14px 0;
+}
+.notegold p { margin: 4px 0; }
+
+.movechips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.movechips .mvbtn { padding: 6px 13px; }
+
+footer.foot {
+  max-width: 1280px; margin: 0 auto; padding: 0 28px 34px;
+  color: var(--muted); font-size: 13.5px;
+}
+
+@media (max-width: 980px) {
+  .app { grid-template-columns: 1fr; padding: 12px 14px 50px; }
+  .cubepanel { position: static; }
+  header.top { padding: 16px 14px 0; }
+  .stage { padding: 20px 18px 24px; }
+}
+</style>
+
+<header class="top">
+  <h1>Gleaning the Cube</h1>
+  <span class="tag">an interactive Rubik&rsquo;s cube tutorial</span>
+</header>
+
+<div class="app">
+  <section class="cubepanel" aria-label="Cube sandbox">
+    <div id="scene">
+      <div id="cube"></div>
+      <div class="turncap" id="turnCaption" hidden></div>
+      <div class="hint">drag to look around &middot; keys U D L R F B turn (Shift = reverse)</div>
+    </div>
+
+    <div class="statusrow">
+      <span id="solvedBadge" hidden>&#10003; Solved</span>
+      <span id="stageHint" style="font-size:13.5px;color:var(--muted)"></span>
+      <span class="spacer"></span>
+      <label class="hinttoggle" title="The arrow and layer spotlight shown during turns and when hovering a turn button">
+        <input type="checkbox" id="overlayToggle" checked> Turn hints
+      </label>
+    </div>
+
+    <div class="movegrid" id="moveGrid"></div>
+
+    <div class="actionrow">
+      <button class="act" id="btnScramble">Scramble</button>
+      <button class="act" id="btnDrill" title="Scrambles only the top layer — the first two layers stay solved. Perfect for stages 5–8.">Drop in: last layer</button>
+      <button class="act" id="btnUndo">Undo</button>
+      <button class="act" id="btnReset">Reset to solved</button>
+    </div>
+
+    <div class="algbar">
+      <span class="lbl" id="algLabel">Sequence</span>
+      <div id="algTokens"><span class="empty">Load a case from a lesson, or scramble and explore.</span></div>
+      <div class="algctrl">
+        <button class="act primary" id="btnPlay">&#9654; Play</button>
+        <button class="act" id="btnStepBack" title="Step one move backward — plays the reverse of the previous move">&#9666; Back</button>
+        <button class="act" id="btnStep" title="Step one move forward">Step &#9656;</button>
+        <button class="act" id="btnReload" hidden>&#8634; Load again</button>
+        <select id="speedSel" aria-label="Turn speed">
+          <option value="520" selected>Slow</option>
+          <option value="280">Normal</option>
+          <option value="140">Fast</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="freeform">
+      <input id="freeAlg" placeholder="Try your own sequence, e.g.  R U R' U'" spellcheck="false">
+      <button class="act" id="btnGo">Go</button>
+    </div>
+  </section>
+
+  <section class="tutorial">
+    <nav class="rail" id="rail" aria-label="Stages"></nav>
+    <div id="stages"></div>
+  </section>
+</div>
+
+<footer class="foot">
+  No skateboards were harmed in the solving of this cube.
+</footer>
+
+<script>
+/* ================= cube engine ================= */
+const COLORS = { Y: 'var(--cY)', W: 'var(--cW)', G: 'var(--cG)', B: 'var(--cB)', R: 'var(--cR)', O: 'var(--cO)' };
+const DIRCOLOR = { '0,1,0': 'Y', '0,-1,0': 'W', '0,0,1': 'G', '0,0,-1': 'B', '1,0,0': 'R', '-1,0,0': 'O' };
+const FACES = { U: ['y', 1], D: ['y', -1], R: ['x', 1], L: ['x', -1], F: ['z', 1], B: ['z', -1] };
+
+function rotVec(v, axis, d) {
+  const [x, y, z] = v;
+  if (axis === 'x') return d > 0 ? [x, -z, y] : [x, z, -y];
+  if (axis === 'y') return d > 0 ? [z, y, -x] : [-z, y, x];
+  return d > 0 ? [-y, x, z] : [y, -x, z];
+}
+function solvedState() {
+  const cs = [];
+  for (let x = -1; x <= 1; x++) for (let y = -1; y <= 1; y++) for (let z = -1; z <= 1; z++) {
+    if (!x && !y && !z) continue;
+    const st = {};
+    for (const [k, c] of Object.entries(DIRCOLOR)) {
+      const [dx, dy, dz] = k.split(',').map(Number);
+      if ((dx && dx === x) || (dy && dy === y) || (dz && dz === z)) st[k] = c;
+    }
+    cs.push({ pos: [x, y, z], st });
+  }
+  return cs;
+}
+function commitToken(cubies, token) {
+  const [axis, s] = FACES[token[0]];
+  const suf = token.slice(1);
+  const times = suf === '2' ? 2 : 1;
+  const d = suf === "'" ? s : -s;
+  const ai = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
+  for (let t = 0; t < times; t++) for (const c of cubies) {
+    if (c.pos[ai] !== s) continue;
+    c.pos = rotVec(c.pos, axis, d);
+    const st = {};
+    for (const [k, col] of Object.entries(c.st)) st[rotVec(k.split(',').map(Number), axis, d).join(',')] = col;
+    c.st = st;
+  }
+}
+function parseAlg(str) {
+  const toks = (str || '').trim().split(/\s+/).filter(Boolean);
+  for (const t of toks) if (!/^[UDLRFB](?:'|2)?$/.test(t)) return null;
+  return toks;
+}
+function invert(toks) {
+  return toks.slice().reverse().map(t => t.endsWith('2') ? t : t.endsWith("'") ? t[0] : t + "'");
+}
+const atPos = (cs, x, y, z) => cs.find(c => c.pos[0] === x && c.pos[1] === y && c.pos[2] === z);
+
+/* ================= rendering ================= */
+const UNIT = 68;
+const cubeEl = document.getElementById('cube');
+let cubies = solvedState();
+let view = { rx: -26, ry: -34 };
+let cubieEls = [];
+
+function faceTransform(k) {
+  switch (k) {
+    case '0,0,1': return 'translateZ(33px)';
+    case '0,0,-1': return 'rotateY(180deg) translateZ(33px)';
+    case '1,0,0': return 'rotateY(90deg) translateZ(33px)';
+    case '-1,0,0': return 'rotateY(-90deg) translateZ(33px)';
+    case '0,1,0': return 'rotateX(90deg) translateZ(33px)';
+    case '0,-1,0': return 'rotateX(-90deg) translateZ(33px)';
+  }
+}
+function buildCube() {
+  clearArrow();
+  cubeEl.innerHTML = '';
+  cubieEls = [];
+  for (const c of cubies) {
+    const div = document.createElement('div');
+    div.className = 'cubie';
+    for (const k of Object.keys(DIRCOLOR)) {
+      const f = document.createElement('div');
+      f.className = 'cface';
+      f.style.transform = faceTransform(k);
+      const stk = document.createElement('div');
+      stk.className = 'stk';
+      f.appendChild(stk);
+      div.appendChild(f);
+    }
+    cubeEl.appendChild(div);
+    cubieEls.push(div);
+  }
+  paint();
+  applyView();
+}
+function baseTransform(c) {
+  return `translate3d(${c.pos[0] * UNIT}px, ${-c.pos[1] * UNIT}px, ${c.pos[2] * UNIT}px)`;
+}
+function paint() {
+  const dirs = Object.keys(DIRCOLOR);
+  cubies.forEach((c, i) => {
+    const div = cubieEls[i];
+    div.classList.remove('anim');
+    div.style.removeProperty('transition');
+    div.style.transform = baseTransform(c);
+    dirs.forEach((k, j) => {
+      const stk = div.children[j].firstChild;
+      const col = c.st[k];
+      stk.style.background = col ? COLORS[col] : 'transparent';
+      stk.style.boxShadow = col ? '' : 'none';
+    });
+  });
+}
+function applyView() {
+  cubeEl.style.transform = `rotateX(${view.rx}deg) rotateY(${view.ry}deg)`;
+}
+
+/* orbit */
+const scene = document.getElementById('scene');
+let dragging = null;
+scene.addEventListener('pointerdown', e => {
+  dragging = { x: e.clientX, y: e.clientY };
+  scene.setPointerCapture(e.pointerId);
+});
+scene.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  view.ry += (e.clientX - dragging.x) * 0.45;
+  view.rx -= (e.clientY - dragging.y) * 0.45;
+  view.rx = Math.max(-105, Math.min(75, view.rx));
+  dragging = { x: e.clientX, y: e.clientY };
+  applyView();
+});
+scene.addEventListener('pointerup', () => dragging = null);
+scene.addEventListener('pointercancel', () => dragging = null);
+
+/* ================= moves, history, queue ================= */
+let history = [];
+let queue = [], qIndex = 0, playing = false, animating = false;
+let currentCase = null;
+const speedSel = document.getElementById('speedSel');
+
+function turnDuration(token) {
+  const base = +speedSel.value;
+  return token.endsWith('2') ? base * 1.5 : base;
+}
+
+/* ---- directional feedback: tooltips, live caption, rotation arrow, layer highlight ---- */
+const MOVE_INFO = {
+  U: ['top layer', 'clockwise seen from above — the front row slides left'],
+  "U'": ['top layer', 'counterclockwise from above — the front row slides right'],
+  D: ['bottom layer', 'clockwise seen from below — the front row slides right'],
+  "D'": ['bottom layer', 'counterclockwise from below — the front row slides left'],
+  R: ['right layer', 'its front edge rolls up and over the top'],
+  "R'": ['right layer', 'its front edge rolls down toward the floor'],
+  L: ['left layer', 'its front edge rolls down toward the floor'],
+  "L'": ['left layer', 'its front edge rolls up and over the top'],
+  F: ['front face', 'clockwise as you look at it — top row rolls right'],
+  "F'": ['front face', 'counterclockwise as you look at it — top row rolls left'],
+  B: ['back face', 'clockwise from behind, so it looks counterclockwise to you — its top edge slides left'],
+  "B'": ['back face', 'counterclockwise from behind — its top edge slides right'],
+};
+function moveDesc(t) {
+  if (t.endsWith('2')) return MOVE_INFO[t[0]][0] + ' — half turn (180°), direction doesn’t matter';
+  return MOVE_INFO[t][0] + ' — ' + MOVE_INFO[t][1];
+}
+function tipFor(t) { return t + ': ' + moveDesc(t); }
+const ARROW_SVG = `<svg viewBox="0 0 100 100" aria-hidden="true">
+  <g fill="none" stroke="var(--accent)" stroke-width="5.5" stroke-linecap="round">
+    <path d="M 50 10 A 40 40 0 0 1 90 50"/>
+    <path d="M 50 90 A 40 40 0 0 1 10 50"/>
+  </g>
+  <g fill="var(--accent)">
+    <path d="M 83 48 L 97 48 L 90 64 Z"/>
+    <path d="M 17 52 L 3 52 L 10 36 Z"/>
+  </g>
+</svg>`;
+function arrowTransform(k) { return faceTransform(k).replace('translateZ(33px)', 'translateZ(114px)'); }
+let overlayOn = true;
+try { overlayOn = localStorage.getItem('lbl-overlay') !== 'off'; } catch (e) {}
+const overlayToggle = document.getElementById('overlayToggle');
+overlayToggle.checked = overlayOn;
+overlayToggle.addEventListener('change', () => {
+  overlayOn = overlayToggle.checked;
+  try { localStorage.setItem('lbl-overlay', overlayOn ? 'on' : 'off'); } catch (e) {}
+  if (!overlayOn) { hoveredToken = null; endPreview(); }
+});
+let capTimer;
+let activeArrow = null;
+let arrowTimers = [];
+let previewMarked = [];
+let hoveredToken = null;
+function clearArrow() {
+  arrowTimers.forEach(clearTimeout);
+  arrowTimers = [];
+  if (activeArrow) { activeArrow.remove(); activeArrow = null; }
+}
+function clearPreviewMarks() {
+  for (const el of previewMarked) el.classList.remove('turning');
+  previewMarked = [];
+}
+function makeArrowPlane(token) {
+  const [axis, s] = FACES[token[0]];
+  const key = axis === 'x' ? `${s},0,0` : axis === 'y' ? `0,${s},0` : `0,0,${s}`;
+  const suf = token.slice(1);
+  const plane = document.createElement('div');
+  plane.className = 'arrowplane';
+  plane.style.transform = arrowTransform(key);
+  plane.style.opacity = '0';
+  plane.style.setProperty('transition', 'opacity .12s', 'important');
+  const spin = document.createElement('div');
+  spin.className = 'arrowspin' + (suf === "'" ? ' ccw' : '');
+  spin.innerHTML = ARROW_SVG;
+  plane.appendChild(spin);
+  cubeEl.appendChild(plane);
+  activeArrow = plane;
+  return { plane, spin, suf };
+}
+/* Hover preview: spotlight the layer a button would turn and wiggle its arrow — before any click. */
+function previewMove(token) {
+  if (!overlayOn || animating) return;
+  clearArrow();
+  clearPreviewMarks();
+  const [axis, s] = FACES[token[0]];
+  const ai = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
+  cubeEl.classList.add('dimming');
+  cubies.forEach((c, i) => {
+    if (c.pos[ai] === s) { cubieEls[i].classList.add('turning'); previewMarked.push(cubieEls[i]); }
+  });
+  const { plane, spin, suf } = makeArrowPlane(token);
+  spin.style.setProperty('animation', `${suf === "'" ? 'hintCCW' : 'hintCW'} .9s ease-in-out infinite alternate`, 'important');
+  requestAnimationFrame(() => { plane.style.opacity = '0.95'; });
+}
+function endPreview() {
+  clearPreviewMarks();
+  if (animating) return; // a turn owns the overlay now — its own cleanup handles it
+  clearArrow();
+  cubeEl.classList.remove('dimming');
+}
+function showTurnFeedback(token, dur, affected) {
+  clearArrow();
+  clearPreviewMarks();
+  const cap = document.getElementById('turnCaption');
+  cap.innerHTML = `<span class="cap-tok">${token}</span> &nbsp;${moveDesc(token)}`;
+  cap.hidden = false;
+  clearTimeout(capTimer);
+  capTimer = setTimeout(() => { cap.hidden = true; }, Math.max(1500, dur + 800));
+
+  if (!overlayOn) return; // caption stays; arrow and spotlight are opt-out
+
+  cubeEl.classList.add('dimming');
+  const marked = affected.map(i => cubieEls[i]);
+  for (const el of marked) el.classList.add('turning');
+
+  const { plane, spin, suf } = makeArrowPlane(token);
+  spin.style.setProperty('transition', `transform ${dur}ms cubic-bezier(.35,.1,.25,1)`, 'important');
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    plane.style.opacity = '0.95';
+    const deg = suf === '2' ? 180 : 90;
+    spin.style.transform = `rotateZ(${suf === "'" ? -deg : deg}deg)`;
+  }));
+  // Linger after the turn completes, then fade slowly. A new turn clears it instantly.
+  arrowTimers.push(setTimeout(() => {
+    plane.style.transition = 'opacity .65s';
+    plane.style.opacity = '0';
+  }, dur + 1100));
+  arrowTimers.push(setTimeout(clearArrow, dur + 1800));
+  setTimeout(() => {
+    cubeEl.classList.remove('dimming');
+    for (const el of marked) el.classList.remove('turning');
+    // still hovering a move / Step / Back button? bring its preview back
+    if (hoveredToken) {
+      const t = typeof hoveredToken === 'function' ? hoveredToken() : hoveredToken;
+      if (t) previewMove(t);
+    }
+  }, dur + 150);
+}
+function animateToken(token, done) {
+  animating = true;
+  const [axis, s] = FACES[token[0]];
+  const suf = token.slice(1);
+  let deg = suf === '2' ? s * 180 : suf === "'" ? -s * 90 : s * 90;
+  // CSS y points down while the cube model's y points up, which mirrors
+  // rotations about the vertical axis only — flip the sign for U/D layers.
+  if (axis === 'y') deg = -deg;
+  const fn = axis === 'x' ? 'rotateX' : axis === 'y' ? 'rotateY' : 'rotateZ';
+  const ai = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
+  const dur = turnDuration(token);
+  document.documentElement.style.setProperty('--turnms', dur + 'ms');
+  const affected = [];
+  cubies.forEach((c, i) => { if (c.pos[ai] === s) affected.push(i); });
+  showTurnFeedback(token, dur, affected);
+  for (const i of affected) {
+    const div = cubieEls[i];
+    div.classList.add('anim');
+    // Inline !important so the turn animates even under a host or OS reduced-motion
+    // kill-switch — this rotation is the lesson, not decoration.
+    div.style.setProperty('transition', `transform ${dur}ms cubic-bezier(.35,.1,.25,1)`, 'important');
+    // force style flush so the transition catches the change
+    void div.offsetWidth;
+    div.style.transform = `${fn}(${deg}deg) ` + baseTransform(cubies[i]);
+  }
+  setTimeout(() => {
+    commitToken(cubies, token);
+    paint();
+    animating = false;
+    updateStatus();
+    if (done) done();
+  }, dur + 20);
+}
+function userMove(token) {
+  if (animating) return;
+  clearQueueIfManual();
+  animateToken(token);
+  history.push(token);
+}
+function clearQueueIfManual() {
+  if (queue.length && qIndex < queue.length) {
+    // learner took over — retire the pending sequence
+    queue = []; qIndex = 0; playing = false;
+    renderAlgBar([], 0, 'Sequence');
+    algTokensEl.innerHTML = '<span class="empty">You took over &mdash; nice. Load the case again to replay it.</span>';
+    document.getElementById('btnReload').hidden = !currentCase;
+  }
+}
+
+/* queue playback */
+const algTokensEl = document.getElementById('algTokens');
+const algLabelEl = document.getElementById('algLabel');
+function renderAlgBar(tokens, idx, label) {
+  algLabelEl.textContent = label || 'Sequence';
+  algTokensEl.innerHTML = '';
+  if (!tokens.length) {
+    algTokensEl.innerHTML = '<span class="empty">Load a case from a lesson, or scramble and explore.</span>';
+    return;
+  }
+  tokens.forEach((t, i) => {
+    const s = document.createElement('span');
+    s.className = 'tok' + (i < idx ? ' done' : i === idx ? ' playing' : '');
+    s.textContent = t;
+    if (i === idx) {
+      s.classList.add('hoverable');
+      s.dataset.preview = t;
+      s.title = 'Next move — hover to preview it on the cube';
+    } else if (i === idx - 1) {
+      s.classList.add('hoverable');
+      s.dataset.preview = invert([t])[0];
+      s.title = 'Just played — hover to preview what ◂ Back does';
+    }
+    algTokensEl.appendChild(s);
+  });
+}
+/* Hovering the next (or just-played) token in the sequence bar previews it on the cube. */
+algTokensEl.addEventListener('mouseover', e => {
+  const s = e.target.closest('.tok');
+  if (!s || !s.dataset.preview) { endPreview(); return; }
+  previewMove(s.dataset.preview);
+});
+algTokensEl.addEventListener('mouseleave', endPreview);
+function stepQueue(auto) {
+  if (animating || qIndex >= queue.length) { playing = false; return; }
+  renderAlgBar(queue, qIndex, algLabelEl.textContent);
+  const token = queue[qIndex];
+  animateToken(token, () => {
+    history.push(token);
+    qIndex++;
+    renderAlgBar(queue, qIndex, algLabelEl.textContent);
+    if (qIndex >= queue.length) {
+      playing = false;
+      document.getElementById('btnPlay').innerHTML = '&#9654; Play';
+      document.getElementById('btnReload').hidden = !currentCase;
+    } else if (auto && playing) {
+      setTimeout(() => stepQueue(true), 100);
+    }
+  });
+}
+document.getElementById('btnPlay').addEventListener('click', () => {
+  if (playing) { playing = false; document.getElementById('btnPlay').innerHTML = '&#9654; Play'; return; }
+  if (qIndex >= queue.length) return;
+  playing = true;
+  document.getElementById('btnPlay').innerHTML = '&#10074;&#10074; Pause';
+  stepQueue(true);
+});
+document.getElementById('btnStep').addEventListener('click', () => { playing = false; document.getElementById('btnPlay').innerHTML = '&#9654; Play'; stepQueue(false); });
+document.getElementById('btnStepBack').addEventListener('click', () => {
+  if (animating || qIndex <= 0) return;
+  playing = false;
+  document.getElementById('btnPlay').innerHTML = '&#9654; Play';
+  qIndex--;
+  renderAlgBar(queue, qIndex, algLabelEl.textContent);
+  const t = queue[qIndex];
+  animateToken(invert([t])[0], () => {
+    if (history.length) history.pop();
+    renderAlgBar(queue, qIndex, algLabelEl.textContent);
+    document.getElementById('btnReload').hidden = !currentCase;
+  });
+});
+document.getElementById('btnReload').addEventListener('click', () => { if (currentCase) loadCase(currentCase); });
+
+function setQueue(tokens, label) {
+  queue = tokens.slice(); qIndex = 0; playing = false;
+  document.getElementById('btnPlay').innerHTML = '&#9654; Play';
+  renderAlgBar(queue, 0, label);
+}
+
+/* case loading */
+function loadCase(c) {
+  playing = false; animating = false;
+  celebrationArmed = false;
+  currentCase = c;
+  cubies = solvedState();
+  for (const t of c.setupToks) commitToken(cubies, t);
+  history = [];
+  buildCube();
+  setQueue(c.solToks, c.label);
+  document.getElementById('btnReload').hidden = false;
+  updateStatus();
+}
+
+/* scramble / reset / undo */
+document.getElementById('btnScramble').addEventListener('click', () => {
+  if (animating) return;
+  currentCase = null;
+  const faces = 'UDLRFB';
+  const sufs = ['', "'", '2'];
+  const toks = [];
+  let last = '';
+  while (toks.length < 22) {
+    const f = faces[Math.random() * 6 | 0];
+    if (f === last) continue;
+    last = f;
+    toks.push(f + sufs[Math.random() * 3 | 0]);
+  }
+  for (const t of toks) { commitToken(cubies, t); history.push(t); }
+  paint();
+  celebrationArmed = true;
+  queue = []; qIndex = 0;
+  renderAlgBar(toks, toks.length, 'Scramble');
+  document.getElementById('btnReload').hidden = true;
+  updateStatus();
+});
+document.getElementById('btnDrill').addEventListener('click', () => {
+  if (animating) return;
+  playing = false;
+  currentCase = null;
+  const LL_ALGS = [
+    "R U R' U R U2 R'",            // Sune
+    "R U2 R' U' R U' R'",          // Antisune
+    "F R U R' U' F'",              // line
+    "F U R U' R' F'",              // L-shape
+    "U R U' L' U R' U' L",         // corner cycle
+    "R U' R U R U R U' R' U' R2",  // edge cycle
+  ];
+  let toks;
+  let guard = 0;
+  do {
+    cubies = solvedState();
+    toks = [];
+    const n = 5 + (Math.random() * 3 | 0);
+    for (let i = 0; i < n; i++) {
+      toks.push(...parseAlg(LL_ALGS[Math.random() * LL_ALGS.length | 0]));
+      const u = ['U', "U'", 'U2', ''][Math.random() * 4 | 0];
+      if (u) toks.push(u);
+    }
+    for (const t of toks) commitToken(cubies, t);
+  } while (checkStage(8) && ++guard < 5);
+  history = toks.slice();
+  buildCube();
+  celebrationArmed = true;
+  queue = []; qIndex = 0;
+  renderAlgBar([], 0, 'Last-layer drill');
+  algTokensEl.innerHTML = '<span class="empty">Bottom two layers untouched &mdash; solve the top. (Stages 5&ndash;8.)</span>';
+  document.getElementById('btnReload').hidden = true;
+  updateStatus();
+});
+document.getElementById('btnReset').addEventListener('click', () => {
+  playing = false; animating = false;
+  celebrationArmed = false;
+  currentCase = null;
+  cubies = solvedState();
+  history = [];
+  buildCube();
+  setQueue([], '');
+  document.getElementById('btnReload').hidden = true;
+  updateStatus();
+});
+document.getElementById('btnUndo').addEventListener('click', () => {
+  if (animating || !history.length) return;
+  const t = history.pop();
+  clearQueueIfManual();
+  animateToken(invert([t])[0]);
+});
+
+/* move buttons + keys */
+function attachPreview(btn, token) {
+  const on = () => { hoveredToken = token; previewMove(token); };
+  const off = () => { hoveredToken = null; endPreview(); };
+  btn.addEventListener('mouseenter', on);
+  btn.addEventListener('mouseleave', off);
+  btn.addEventListener('focus', on);
+  btn.addEventListener('blur', off);
+}
+/* Step / Back preview what they'd do right now — the token depends on the current position. */
+function attachDynamicPreview(btn, getToken) {
+  const on = () => {
+    hoveredToken = getToken;
+    const t = getToken();
+    if (t) previewMove(t); else endPreview();
+  };
+  const off = () => { hoveredToken = null; endPreview(); };
+  btn.addEventListener('mouseenter', on);
+  btn.addEventListener('mouseleave', off);
+  btn.addEventListener('focus', on);
+  btn.addEventListener('blur', off);
+}
+attachDynamicPreview(document.getElementById('btnStep'), () => qIndex < queue.length ? queue[qIndex] : null);
+attachDynamicPreview(document.getElementById('btnStepBack'), () => qIndex > 0 ? invert([queue[qIndex - 1]])[0] : null);
+const moveGrid = document.getElementById('moveGrid');
+for (const f of ['U', 'D', 'L', 'R', 'F', 'B']) {
+  for (const suf of ['', "'"]) {
+    const b = document.createElement('button');
+    b.className = 'mvbtn';
+    b.textContent = f + suf;
+    b.dataset.tip = tipFor(f + suf);
+    b.setAttribute('aria-label', tipFor(f + suf));
+    b.addEventListener('click', () => userMove(f + suf));
+    attachPreview(b, f + suf);
+    moveGrid.appendChild(b);
+  }
+}
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.ctrlKey || e.metaKey || e.altKey) return;
+  const f = e.key.toUpperCase();
+  if ('UDLRFB'.includes(f) && f.length === 1) {
+    userMove(f + (e.shiftKey ? "'" : ''));
+    e.preventDefault();
+  }
+});
+
+/* free-form input */
+document.getElementById('btnGo').addEventListener('click', runFree);
+document.getElementById('freeAlg').addEventListener('keydown', e => { if (e.key === 'Enter') runFree(); });
+function runFree() {
+  const el = document.getElementById('freeAlg');
+  const toks = parseAlg(el.value);
+  if (!toks || !toks.length) {
+    el.value = '';
+    el.placeholder = "Moves are U D L R F B, with ' or 2 — e.g.  R U R' U'";
+    return;
+  }
+  currentCase = null;
+  document.getElementById('btnReload').hidden = true;
+  setQueue(toks, 'Your sequence');
+  playing = true;
+  document.getElementById('btnPlay').innerHTML = '&#10074;&#10074; Pause';
+  stepQueue(true);
+}
+
+/* ================= stage detection ================= */
+function allStickersHome(list) {
+  return list.every(c => Object.entries(c.st).every(([k, col]) => DIRCOLOR[k] === col));
+}
+function checkStage(n) {
+  const cs = cubies;
+  const uEdges = [[0, -1], [-1, 0], [1, 0], [0, 1]].map(([x, z]) => atPos(cs, x, 1, z));
+  const dLayer = cs.filter(c => c.pos[1] === -1);
+  const eLayer = cs.filter(c => c.pos[1] === 0 && Object.keys(c.st).length === 2);
+  const uLayer = cs.filter(c => c.pos[1] === 1);
+  const crossOK = dLayer.filter(c => Object.keys(c.st).length === 2).every(c => Object.entries(c.st).every(([k, col]) => DIRCOLOR[k] === col));
+  switch (n) {
+    case 0: return true;
+    case 1: return uEdges.filter(c => c.st['0,1,0'] === 'W').length === 4 || crossOK;
+    case 2: return crossOK;
+    case 3: return allStickersHome(dLayer);
+    case 4: return allStickersHome(dLayer) && allStickersHome(eLayer);
+    case 5: return uEdges.every(c => c.st['0,1,0'] === 'Y');
+    case 6: return uLayer.every(c => c.st['0,1,0'] === 'Y');
+    case 7: {
+      if (!uLayer.every(c => c.st['0,1,0'] === 'Y')) return false;
+      return [[-1, -1], [1, -1], [-1, 1], [1, 1]].every(([x, z]) => {
+        const c = atPos(cs, x, 1, z);
+        const want = ['Y', DIRCOLOR[`${x},0,0`], DIRCOLOR[`0,0,${z}`]].sort().join('');
+        return Object.values(c.st).sort().join('') === want;
+      });
+    }
+    case 8: return allStickersHome(cs);
+  }
+}
+
+/* ================= tutorial content ================= */
+function mini(pattern) {
+  // pattern: 9 chars of w y g s
+  return '<span class="mini" aria-hidden="true">' + pattern.split('').map(ch => `<i class="${ch}"></i>`).join('') + '</span>';
+}
+const STAGES = [
+  { name: 'Start here', icon: 'ssssyssss' },
+  { name: 'The Daisy', icon: 'swswywsws' },
+  { name: 'White Cross', icon: 'swswwwsws' },
+  { name: 'First Layer', icon: 'wwwwwwwww' },
+  { name: 'Middle Layer', icon: 'sssgggggg' },
+  { name: 'Yellow Cross', icon: 'sysyyysys' },
+  { name: 'Yellow Face', icon: 'yyyyyyyyy' },
+  { name: 'Corner Places', icon: 'gsgsssggg' },
+  { name: 'Last Edges', icon: 'ggggggggg' },
+];
+
+const CASES = {};
+function defCase(id, label, sol, setup) {
+  const solToks = parseAlg(sol);
+  const setupToks = setup === undefined ? invert(solToks) : parseAlg(setup);
+  CASES[id] = { label, solToks, setupToks };
+  return id;
+}
+const T1 = "R U R' U'";
+defCase('petalBottom', 'Petal from the bottom', 'F2', '');
+defCase('petalMiddle', 'Petal from the middle layer', "F'", "F'");
+defCase('petalTop', 'Petal facing you on top', "F' L'", "R F'");
+defCase('crossAligned', 'Petal down into the cross', 'F2', 'F2');
+defCase('crossUnaligned', 'Align, then drop', 'U F2', "F2 U'");
+defCase('crossFull', 'Full daisy to full cross', 'L2 B2 R2 F2', 'F2 R2 B2 L2');
+defCase('cornerRight', 'White facing right', T1);
+defCase('cornerUp', 'White facing up', `${T1} ${T1} ${T1}`);
+defCase('cornerFront', 'White facing you', `${T1} ${T1} ${T1} ${T1} ${T1}`);
+defCase('midRight', 'Send it right', "U R U' R' U' F' U F");
+defCase('midLeft', 'Send it left', "U' L' U L U F U' F'");
+defCase('ycLine', 'The Line', "F R U R' U' F'");
+defCase('ycL', 'The L-shape', "F U R U' R' F'");
+defCase('ycDot', 'The Dot', "F R U R' U' F' U2 F U R U' R' F'");
+const SUNE = "R U R' U R U2 R'";
+defCase('fish', 'The Fish (Sune)', SUNE);
+defCase('ollH', 'All yellows sideways', `${SUNE} ${SUNE}`);
+defCase('ollPi', 'Two back, one left, one right', `${SUNE} U ${SUNE}`);
+defCase('ollHead', 'Headlights shining at you', `${SUNE} U' ${SUNE} U2 ${SUNE}`);
+defCase('cornerCycle', 'Three corners, one anchor', "U R U' L' U R' U' L");
+defCase('edgeCycle', 'Three edges, one anchor', "R U' R U R U R U' R' U' R2");
+
+function caseCard(id, desc, note) {
+  const c = CASES[id];
+  const chips = c.solToks.map(t => `<span class="tok">${t}</span>`).join(' ');
+  return `<div class="case">
+    <h3>${c.label}</h3>
+    <p class="desc">${desc}${note ? ` <small>${note}</small>` : ''}</p>
+    <div class="casealg">${chips}</div>
+    <div class="casebtns">
+      <button class="act primary" data-load="${id}">Load this position</button>
+      <button class="act" data-loadplay="${id}">Load &amp; play</button>
+    </div>
+  </div>`;
+}
+
+const CONTENT = [
+/* 0 ---------------------------------------------------------- */
+`<p class="eyebrow">Stage 0</p>
+<h2>Start here</h2>
+<p class="goal">How the cube actually works, how moves are written, and the road ahead.</p>
+<p>Three facts make the cube learnable:</p>
+<ul>
+  <li><strong>Centers never move.</strong> The six center stickers are bolted to the core. The white center <em>is</em> the white face, forever. Spin the cube all you like &mdash; green stays opposite blue, red opposite orange, white opposite yellow.</li>
+  <li><strong>You solve pieces, not stickers.</strong> There are 12 edges (two stickers each) and 8 corners (three stickers). A white-green edge is one object; both its stickers travel together. Once you see pieces instead of stickers, half the confusion disappears.</li>
+  <li><strong>Grip matters.</strong> For this whole method, hold the cube with the <strong>yellow center on top</strong> and keep it there. White ends up on the bottom, and every instruction on this page assumes that grip.</li>
+</ul>
+<h3 style="font-size:19px;margin-top:20px">Reading a move</h3>
+<p>Each face has a letter: <span class="alg">U</span>p, <span class="alg">D</span>own, <span class="alg">L</span>eft, <span class="alg">R</span>ight, <span class="alg">F</span>ront, <span class="alg">B</span>ack. A bare letter means: turn that face a quarter turn <em>clockwise as if you were looking straight at it</em>. An apostrophe (<span class="alg">R'</span>, say &ldquo;R&nbsp;prime&rdquo;) means counterclockwise. A <span class="alg">2</span> means a half turn. Click any of these and watch the cube:</p>
+<div class="movechips" id="notationChips"></div>
+<p><span class="alg">B</span> trips everyone up at first: clockwise <em>from behind</em> looks counterclockwise from where you sit. Trust the letter, not your eyes.</p>
+<h3 style="font-size:19px;margin-top:20px">The road ahead</h3>
+<p>You will build the cube in layers, bottom to top: white edges (stages 1&ndash;2), white corners (3), the middle ring (4), then the yellow top in four short steps (5&ndash;8). Early stages are freestyle; later ones each lean on one short algorithm you repeat until the case is gone.</p>
+<p>The stage chips above the lesson watch your cube. A green check means that stage&rsquo;s goal is currently true on the cube in the sandbox; the gold ring marks the stage to work on next. Scramble the cube and the checks will tell you exactly where to jump in.</p>
+<div class="notegold"><p><strong>How to practice each lesson:</strong> load a position, press <em>Step</em> to walk the fix one turn at a time, then load it again and try the moves yourself with the buttons or keyboard. When it feels boring, you own it.</p></div>`,
+
+/* 1 ---------------------------------------------------------- */
+`<p class="eyebrow">Stage 1</p>
+<h2>The Daisy</h2>
+<p class="goal">Goal: four white edge stickers around the yellow center, like petals. Corners don&rsquo;t matter yet.</p>
+<p>The daisy is a staging area. Getting each white edge to the top, where you can see it, is far easier than placing it perfectly at the bottom right away &mdash; and once all four petals sit around the yellow center, the white cross falls out in four easy moves (next stage).</p>
+<p>There is no algorithm here. Find a white edge sticker, then get it to face up in the top layer:</p>
+<ul>
+  <li><strong>In the bottom layer, white facing down?</strong> Give that face a half turn &mdash; the petal rides straight up.</li>
+  <li><strong>In the middle layer?</strong> Turn the face the edge&rsquo;s <em>other</em> sticker touches until the edge reaches the top.</li>
+  <li><strong>In the top layer but white facing sideways?</strong> You can&rsquo;t twist it in place. Drop it into the middle layer, then bring it up on the neighboring face.</li>
+</ul>
+${caseCard('petalBottom', 'The white-green edge sits at the bottom-front with white facing the floor. One half turn of the front face lifts it into the daisy.')}
+${caseCard('petalMiddle', 'A white edge is parked in the middle layer beside the front face, white sticker pointing right. Keep turning the front face and the edge pops up as a petal.')}
+${caseCard('petalTop', 'A white sticker in the top layer stares straight at you &mdash; it cannot be twisted upward from there. Drop it into the middle layer, then lift it up on the left face.', 'Two moves: down, then up a different door.')}
+<details class="stuck"><summary>Stuck? Common daisy snags</summary>
+<ul>
+  <li><strong>Lifting one petal knocks another off.</strong> Before you bring an edge up, turn the top (<span class="alg">U</span>) so a petal-free spot is waiting to receive it. The daisy doesn&rsquo;t care which petal is where &mdash; any arrangement of four works.</li>
+  <li><strong>You see three petals and can&rsquo;t find the fourth.</strong> It&rsquo;s hiding with its white sticker facing sideways &mdash; scan the middle layer and the side stickers of the bottom layer. There are always exactly four white edges.</li>
+  <li><strong>A white <em>corner</em> looks like a petal.</strong> Petals are edges &mdash; the pieces directly beside the yellow center, never diagonal from it.</li>
+</ul>
+</details>`,
+
+/* 2 ---------------------------------------------------------- */
+`<p class="eyebrow">Stage 2</p>
+<h2>White Cross</h2>
+<p class="goal">Goal: a white plus-sign on the bottom, and each cross edge&rsquo;s side color matching the center beside it.</p>
+<p>Each petal carries a second color. Turn the top layer until a petal&rsquo;s side sticker lines up with the center of the same color below it &mdash; then give that face a half turn. The petal dives to the bottom, perfectly placed. Repeat four times and the daisy becomes the cross.</p>
+${caseCard('crossAligned', 'The green petal already sits above the green center. A half turn of the front face plants it in the cross.', '(The white corner stickers you may see up top are strays &mdash; corners are the next stage&rsquo;s problem.)')}
+${caseCard('crossUnaligned', 'The petal hovers over the red center, but its side sticker is green. Turn the top once to carry it to the green face, then drop it home.')}
+${caseCard('crossFull', 'A complete daisy, every petal already matched to its center. Four half turns finish the whole cross.')}
+<details class="stuck"><summary>Stuck? Cross troubleshooting</summary>
+<ul>
+  <li><strong>&ldquo;My cross is white but the sides don&rsquo;t match the centers.&rdquo;</strong> That&rsquo;s the classic false cross. A cross edge has two jobs: white down <em>and</em> side color matching its center. Bring the offending edge back up (half turn), re-align it over the correct center, and drop it again.</li>
+  <li><strong>Matching one petal un-matches another.</strong> Normal. Drop the matched one first &mdash; once an edge is in the cross it ignores top-layer turns. Match, drop, match, drop.</li>
+</ul>
+</details>`,
+
+/* 3 ---------------------------------------------------------- */
+`<p class="eyebrow">Stage 3</p>
+<h2>First Layer Corners</h2>
+<p class="goal">Goal: the entire bottom layer solid &mdash; white face down, and the bottom row of every side matching its center.</p>
+<p>From here to the end, the white cross stays on the bottom. You&rsquo;ll place four white corners using one four-move trigger, the most famous finger sequence in cubing:</p>
+<p style="font-size:18px"><span class="alg">R U R' U'</span></p>
+<p>The routine for every corner:</p>
+<ol>
+  <li>Find a corner with a white sticker in the <strong>top layer</strong>.</li>
+  <li>Its other two colors name its home &mdash; the white-green-red corner lives between the green and red faces. Turn the top until the corner floats <strong>directly above that slot</strong>.</li>
+  <li>Hold the cube so that slot is at the <strong>front-right</strong>.</li>
+  <li>Do <span class="alg">R U R' U'</span> repeatedly. The corner drops in and rights itself &mdash; after 1, 3, or 5 rounds depending on which way its white sticker points.</li>
+</ol>
+${caseCard('cornerRight', 'The white-green-red corner floats above its home, white sticker facing right. One round seats it.')}
+${caseCard('cornerUp', 'Same corner, white sticker facing straight up. Three rounds. Watch it drop in, pop out, and drop in again correctly &mdash; the trigger never breaks the cross.')}
+${caseCard('cornerFront', 'White sticker facing you. Five rounds &mdash; it feels long, but your hands stop thinking after a day of practice.')}
+<details class="stuck"><summary>Stuck? Corner troubleshooting</summary>
+<ul>
+  <li><strong>The corner is already in the bottom, but twisted or in the wrong slot.</strong> Hold that slot at the front-right and run <span class="alg">R U R' U'</span> once &mdash; the corner pops up to the top layer. Now it&rsquo;s a case you know.</li>
+  <li><strong>You count more or fewer than four white corners.</strong> Recount &mdash; a corner shows three stickers, and its white one may be hiding on the underside of the top layer, facing up at you only when you tilt the cube.</li>
+</ul>
+</details>`,
+
+/* 4 ---------------------------------------------------------- */
+`<p class="eyebrow">Stage 4</p>
+<h2>Middle Layer Edges</h2>
+<p class="goal">Goal: the bottom two layers complete. Four edges to place; no piece with yellow is involved.</p>
+<p>Look at the top layer for an edge with <strong>no yellow sticker</strong> &mdash; that edge belongs in the middle ring. Turn the top until its front sticker matches the center it&rsquo;s facing; now it forms a little upside-down T with that center. Its <em>top</em> sticker tells you which way it must travel:</p>
+<ul>
+  <li>Top sticker matches the center on the <strong>right</strong> &rarr; right-hand insert: <span class="alg">U R U' R' U' F' U F</span></li>
+  <li>Top sticker matches the center on the <strong>left</strong> &rarr; left-hand insert: <span class="alg">U' L' U L U F U' F'</span></li>
+</ul>
+<p>Both are the same idea mirrored: carry the edge away, bring its slot up to catch it, and repair everything you disturbed.</p>
+${caseCard('midRight', 'The green-red edge sits at the top-front: green matches the front center, red on top matches the right center. Send it right.')}
+${caseCard('midLeft', 'The green-orange edge at the top-front: green facing you, orange on top matching the left center. Send it left.')}
+<details class="stuck"><summary>Stuck? Middle layer troubleshooting</summary>
+<ul>
+  <li><strong>An edge is sitting in its slot but flipped</strong> (or a wrong edge is squatting there). Evict it: aim any yellow-free top edge &mdash; or even a junk position &mdash; at that slot and run the matching insert. The squatter pops up to the top layer, where you can place it properly.</li>
+  <li><strong>Every top-layer edge has yellow on it, but the middle isn&rsquo;t done.</strong> Then a needed edge is trapped in a wrong middle slot. Same cure: insert any top edge into that slot to free it.</li>
+  <li><strong>The insert wrecked your first layer!</strong> It didn&rsquo;t &mdash; it borrows and repays. But if you stop halfway through the eight moves, it stays broken. Always finish the sequence.</li>
+</ul>
+</details>`,
+
+/* 5 ---------------------------------------------------------- */
+`<p class="eyebrow">Stage 5</p>
+<h2>Yellow Cross</h2>
+<p class="goal">Goal: a yellow plus-sign on top. Only edges count &mdash; ignore the corners completely.</p>
+<p>Look at the yellow stickers among the four top <em>edges</em>. Besides the finished cross you can only ever see three shapes:</p>
+<ul>
+  <li><strong>A line</strong> through the center &mdash; hold it running <strong>left-to-right</strong>, then <span class="alg">F R U R' U' F'</span>.</li>
+  <li><strong>An L</strong> (two neighbors) &mdash; hold it hugging the <strong>back-left</strong> corner of the face, then <span class="alg">F U R U' R' F'</span>.</li>
+  <li><strong>A dot</strong> (no yellow edges up) &mdash; either alg, re-hold for the shape you get, and go again. Two rounds total.</li>
+</ul>
+<p>The two algorithms are near-twins &mdash; same six faces, one pair of moves swapped. Say them out loud as you turn; rhythm is memory.</p>
+<p class="smallnote">Practicing this stretch? The <strong>Drop in: last layer</strong> button under the cube scrambles only the top layer &mdash; endless stage 5&ndash;8 reps without redoing the first two layers.</p>
+${caseCard('ycLine', 'A yellow line runs left-to-right through the center. One round makes the cross.')}
+${caseCard('ycL', 'Yellow edges at the back and left form an L hugging the back-left corner. One round makes the cross.')}
+${caseCard('ycDot', 'No yellow edges up at all. Watch the full journey: line-alg, re-aim, L-alg, cross.')}
+<details class="stuck"><summary>Stuck? Yellow cross troubleshooting</summary>
+<ul>
+  <li><strong>&ldquo;I did the alg and got a different shape, not the cross.&rdquo;</strong> Almost always a holding error. The line must run left&ndash;right (not toward you), and the L must sit in the back-left. Re-orient, then repeat.</li>
+  <li><strong>&ldquo;Exactly three edges are yellow.&rdquo;</strong> Impossible on a legal cube &mdash; edges flip in pairs. If you see it, a sticker has been peeled or a corner is being miscounted as an edge.</li>
+</ul>
+</details>`,
+
+/* 6 ---------------------------------------------------------- */
+`<p class="eyebrow">Stage 6</p>
+<h2>Yellow Face</h2>
+<p class="goal">Goal: the whole top face yellow. One algorithm does everything: the Sune.</p>
+<p style="font-size:18px"><span class="alg">R U R' U R U2 R'</span></p>
+<p>Count the corners that already show yellow <strong>on top</strong>:</p>
+<ul>
+  <li><strong>Exactly one</strong> &rarr; you have the Fish. Point the yellow corner to the <strong>front-left</strong>, check that the front-right corner&rsquo;s yellow sticker faces <em>you</em>, and Sune once.</li>
+  <li><strong>None or two</strong> &rarr; match one of the patterns below, or simply Sune once from any grip (yellow cross up) and re-count. Sune can never damage your yellow cross.</li>
+</ul>
+${caseCard('fish', 'One corner is yellow, pointed front-left; the front-right corner&rsquo;s yellow faces you. This is the Fish &mdash; one Sune finishes the face.')}
+${caseCard('ollH', 'No corners up: all four yellow stickers lie on the sides, two facing left and two facing right, none facing you. Two Sunes in a row.')}
+${caseCard('ollPi', 'No corners up: two yellows face the back, one left, one right &mdash; again none facing you. Sune, quarter-turn the top, Sune.')}
+${caseCard('ollHead', 'Two back corners are already yellow, and the two front corners&rsquo; yellows shine at you like headlights. Three Sunes with re-aims between &mdash; watch the Step button closely on this one.')}
+<details class="stuck"><summary>Stuck? Yellow face troubleshooting</summary>
+<ul>
+  <li><strong>&ldquo;One corner is up but the front-right yellow doesn&rsquo;t face me.&rdquo;</strong> That&rsquo;s the mirror fish. Hold it front-left anyway, Sune once, and you&rsquo;ll land in one of the cases above.</li>
+  <li><strong>&ldquo;I keep going in circles.&rdquo;</strong> Re-read the grip each time before you Sune &mdash; the algorithm is the same, the <em>holding</em> is the case. Load a case, Step through it, and watch what the first <span class="alg">R</span> lifts.</li>
+</ul>
+</details>`,
+
+/* 7 ---------------------------------------------------------- */
+`<p class="eyebrow">Stage 7</p>
+<h2>Corner Places</h2>
+<p class="goal">Goal: every top corner between the two side colors it belongs to. The top face stays all yellow throughout.</p>
+<p>A corner is <em>placed</em> when its two side stickers match the two faces it touches (a green-red corner between the green and red faces). Spin the top layer and look for placed corners:</p>
+<ol>
+  <li>Turn <span class="alg">U</span> until at least one corner is placed.</li>
+  <li>Hold that corner at the <strong>front-right</strong> &mdash; it&rsquo;s your anchor.</li>
+  <li>Run <span class="alg">U R U' L' U R' U' L</span>. The other three corners rotate around the anchor. Once or twice does it.</li>
+</ol>
+${caseCard('cornerCycle', 'The front-right corner is placed; the other three are cycled one spot around. One round of the algorithm sets all four.', 'Run it from the wrong grip and it simply cycles them elsewhere &mdash; the anchor is everything.')}
+<details class="stuck"><summary>Stuck? Corner placement troubleshooting</summary>
+<ul>
+  <li><strong>No corner is placed at any top-layer rotation.</strong> Run the algorithm once from any grip &mdash; afterwards, one corner will be placeable. Spin, anchor, go again.</li>
+  <li><strong>Two corners placed, two swapped.</strong> Same cure: run it once from any grip, re-scan &mdash; the position reshuffles into a one-anchor case.</li>
+  <li><strong>&ldquo;It scrambled my yellow face!&rdquo;</strong> Check mid-sequence, sure &mdash; but let it finish. Complete rounds preserve the yellow face and both bottom layers.</li>
+</ul>
+</details>`,
+
+/* 8 ---------------------------------------------------------- */
+`<p class="eyebrow">Stage 8</p>
+<h2>Last Edges</h2>
+<p class="goal">Goal: the whole cube. Four top edges remain.</p>
+<p>Probably one top edge already matches its center perfectly. Hold that solved edge at the <strong>back</strong>, then:</p>
+<p style="font-size:18px"><span class="alg">R U' R U R U R U' R' U' R2</span></p>
+<p>The three unsolved edges chase each other one seat around: front &rarr; right, right &rarr; left, left &rarr; front. If they moved the wrong way, run it once more &mdash; three rounds is a full lap back to where you started, so you can never make things worse.</p>
+${caseCard('edgeCycle', 'The back edge is solved and anchored; the other three are each one seat off. One round &mdash; and the cube is done.')}
+<details class="stuck"><summary>Stuck? Final-stage troubleshooting</summary>
+<ul>
+  <li><strong>No edge matches anywhere.</strong> Run the algorithm once from any grip; a solved edge will appear. Anchor it at the back and finish.</li>
+  <li><strong>Everything solved but the top layer looks twisted as a whole.</strong> That&rsquo;s just the top layer misaligned &mdash; turn <span class="alg">U</span> until it clicks home. (Cubers call this final nudge &ldquo;AUF&rdquo;.)</li>
+</ul>
+</details>
+<div class="notegold">
+<p><strong>You now know a complete solve.</strong> Hit <em>Scramble</em> and walk the stages: daisy, cross, corners, middle, yellow cross, yellow face, corner places, last edges. The chips above will check off as you climb. Expect your first full solve to take a while &mdash; then to fall off a cliff with a week of practice. Now go finish the run &mdash; and stick the landing.</p>
+</div>`,
+];
+
+/* build rail + stages */
+const railEl = document.getElementById('rail');
+const stagesEl = document.getElementById('stages');
+let activeStage = 0;
+STAGES.forEach((s, i) => {
+  const chip = document.createElement('button');
+  chip.className = 'stagechip';
+  chip.innerHTML = `<span class="num">${i}</span>${mini(s.icon)}<span>${s.name}</span>`;
+  chip.addEventListener('click', () => showStage(i));
+  railEl.appendChild(chip);
+
+  const sec = document.createElement('article');
+  sec.className = 'stage';
+  sec.hidden = i !== 0;
+  sec.innerHTML = CONTENT[i] + `<div class="stagenav">
+    ${i > 0 ? `<button class="act" data-nav="${i - 1}">&larr; ${STAGES[i - 1].name}</button>` : '<span></span>'}
+    ${i < 8 ? `<button class="act" data-nav="${i + 1}">${STAGES[i + 1].name} &rarr;</button>` : '<span></span>'}
+  </div>`;
+  stagesEl.appendChild(sec);
+});
+function showStage(i) {
+  activeStage = i;
+  [...stagesEl.children].forEach((el, j) => el.hidden = j !== i);
+  [...railEl.children].forEach((el, j) => el.classList.toggle('active', j === i));
+  updateStatus();
+}
+stagesEl.addEventListener('click', e => {
+  const nav = e.target.closest('[data-nav]');
+  if (nav) { showStage(+nav.dataset.nav); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  const load = e.target.closest('[data-load]');
+  if (load) { loadCase(CASES[load.dataset.load]); return; }
+  const lp = e.target.closest('[data-loadplay]');
+  if (lp) {
+    loadCase(CASES[lp.dataset.loadplay]);
+    playing = true;
+    document.getElementById('btnPlay').innerHTML = '&#10074;&#10074; Pause';
+    setTimeout(() => stepQueue(true), 350);
+  }
+});
+
+/* notation demo chips */
+const notationChips = document.getElementById('notationChips');
+["U", "U'", "D", "R", "R'", "L", "F", "F'", "B", "U2", "R2"].forEach(t => {
+  const b = document.createElement('button');
+  b.className = 'mvbtn';
+  b.textContent = t;
+  b.dataset.tip = tipFor(t);
+  b.setAttribute('aria-label', tipFor(t));
+  b.addEventListener('click', () => userMove(t));
+  attachPreview(b, t);
+  notationChips.appendChild(b);
+});
+
+/* status + celebration */
+let celebrationArmed = false;
+let wasSolved = true;
+function celebrate() {
+  const badge = document.getElementById('solvedBadge');
+  badge.classList.add('party');
+  setTimeout(() => badge.classList.remove('party'), 1900);
+  // victory lap: one full spin of the whole cube (view only — the state is untouched)
+  cubeEl.style.setProperty('transition', 'transform 900ms cubic-bezier(.3,.7,.2,1)', 'important');
+  view.ry += 360;
+  applyView();
+  setTimeout(() => {
+    cubeEl.style.removeProperty('transition');
+    view.ry -= 360;
+    applyView();
+  }, 950);
+}
+function updateStatus() {
+  const solvedNow = checkStage(8);
+  document.getElementById('solvedBadge').hidden = !solvedNow;
+  if (solvedNow && !wasSolved && celebrationArmed) {
+    celebrationArmed = false;
+    celebrate();
+  }
+  wasSolved = solvedNow;
+  let nextUp = -1;
+  let doneChain = true;
+  [...railEl.children].forEach((chip, i) => {
+    const ok = checkStage(i);
+    const done = doneChain && ok;
+    if (!done && doneChain && i > 0) { doneChain = false; nextUp = i; }
+    chip.classList.toggle('done', i > 0 && done);
+    chip.classList.toggle('next', i === nextUp && !solvedNow);
+  });
+  const hint = document.getElementById('stageHint');
+  if (solvedNow) hint.textContent = '';
+  else if (nextUp > 0) hint.textContent = `Next up: ${nextUp}. ${STAGES[nextUp].name}`;
+}
+
+buildCube();
+setQueue([], '');
+updateStatus();
+showStage(0);
+</script>
