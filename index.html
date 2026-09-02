@@ -364,6 +364,14 @@ footer.foot {
 .timer.stopped { color: var(--accent); }
 .statsrow { font-size: 12.5px; color: var(--muted); }
 .statsrow b { color: var(--ink); font-weight: 700; }
+.coachsay {
+  border-left: 3px solid var(--accent);
+  background: var(--panel2);
+  border-radius: 0 10px 10px 0;
+  padding: 9px 13px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
 
 #cheatsheet { display: none; }
 @media print {
@@ -432,6 +440,9 @@ footer.foot {
 
     <div id="statsRow" class="statsrow" hidden></div>
 
+    <button class="act primary" id="btnCoach" title="Reads your cube and hands you the next few moves — with the why">What&rsquo;s my next move?</button>
+    <div id="coachSay" class="coachsay" hidden></div>
+
     <div class="algbar">
       <span class="lbl" id="algLabel">Sequence</span>
       <div id="algTokens"><span class="empty">Load a case from a lesson, or scramble and explore.</span></div>
@@ -470,7 +481,7 @@ footer.foot {
     <div class="ccard"><h4>4 &middot; Middle Layer Edges</h4><p>Pick a top edge with no yellow; match its front sticker to its center. Top sticker matches the right center &rarr; right insert; the left center &rarr; left insert.</p><code>U R U' R' U' F' U F</code> <span>(right)</span><br><code>U' L' U L U F U' F'</code> <span>(left)</span></div>
     <div class="ccard"><h4>5 &middot; Yellow Cross</h4><p>Only edges count. Line: hold it running left&ndash;right. L-shape: hug it into the back-left. Dot: line-alg, <code>U2</code>, then L-alg.</p><code>F R U R' U' F'</code> <span>(line)</span><br><code>F U R U' R' F'</code> <span>(L)</span></div>
     <div class="ccard"><h4>6 &middot; Yellow Face</h4><p>The Sune. Fish: lone yellow-up corner at front-left with the front-right corner&rsquo;s yellow facing you. Other patterns: Sune, re-aim, Sune again.</p><code>R U R' U R U2 R'</code></div>
-    <div class="ccard"><h4>7 &middot; Corner Places</h4><p>A corner is placed when its side colors match both neighboring faces. Hold a placed corner at the front-right as the anchor; run once or twice. None placed? Run it once anywhere, then look again.</p><code>U R U' L' U R' U' L</code></div>
+    <div class="ccard"><h4>7 &middot; Corner Places</h4><p>A corner is placed when its side colors match both neighboring faces. Hold a placed corner at the front-left as the anchor; run once or twice &mdash; it never twists corners, so the yellow face is safe. None placed? Run it once anywhere, then look again.</p><code>R' F R' B2 R F' R' B2 R2</code></div>
     <div class="ccard"><h4>8 &middot; Last Edges</h4><p>Hold the one solved edge at the back. The rest cycle front&rarr;right, right&rarr;left, left&rarr;front; repeat if they went the wrong way. Finish with a top-layer turn to click home.</p><code>R U' R U R U R U' R' U' R2</code></div>
   </div>
   <p class="cnote">No skateboards were harmed in the solving of this cube.</p>
@@ -746,6 +757,24 @@ function renderStats() {
 
 document.getElementById('btnCheat').addEventListener('click', () => window.print());
 
+/* ---- coach ---- */
+document.getElementById('btnCoach').addEventListener('click', () => {
+  if (animating) return;
+  const say = document.getElementById('coachSay');
+  say.hidden = false;
+  const step = coachNext(cubies);
+  if (!step) {
+    say.innerHTML = '<b>Nothing to coach &mdash; the cube is solved.</b> Scramble (or Drop in) and ask again.';
+    setQueue([], '');
+    return;
+  }
+  say.innerHTML = `<b>${step.title}.</b> ${step.why}`;
+  currentCase = null;
+  document.getElementById('btnReload').hidden = true;
+  setQueue(step.moves, 'Coach');
+});
+function hideCoach() { document.getElementById('coachSay').hidden = true; }
+
 let overlayOn = true;
 try { overlayOn = localStorage.getItem('lbl-overlay') !== 'off'; } catch (e) {}
 const overlayToggle = document.getElementById('overlayToggle');
@@ -979,6 +1008,7 @@ function loadCase(c) {
   playing = false; animating = false;
   celebrationArmed = false;
   cancelTimer();
+  hideCoach();
   currentCase = c;
   cubies = solvedState();
   for (const t of c.setupToks) commitToken(cubies, t);
@@ -1005,6 +1035,7 @@ document.getElementById('btnScramble').addEventListener('click', () => {
   }
   for (const t of toks) { commitToken(cubies, t); history.push(t); }
   paint();
+  hideCoach();
   celebrationArmed = true;
   startTimer();
   queue = []; qIndex = 0;
@@ -1039,6 +1070,7 @@ document.getElementById('btnDrill').addEventListener('click', () => {
   } while (checkStage(8) && ++guard < 5);
   history = toks.slice();
   buildCube();
+  hideCoach();
   celebrationArmed = true;
   cancelTimer();
   queue = []; qIndex = 0;
@@ -1051,6 +1083,7 @@ document.getElementById('btnReset').addEventListener('click', () => {
   playing = false; animating = false;
   celebrationArmed = false;
   cancelTimer();
+  hideCoach();
   currentCase = null;
   cubies = solvedState();
   history = [];
@@ -1206,7 +1239,7 @@ defCase('fish', 'The Fish (Sune)', SUNE);
 defCase('ollH', 'All yellows sideways', `${SUNE} ${SUNE}`);
 defCase('ollPi', 'Two back, one left, one right', `${SUNE} U ${SUNE}`);
 defCase('ollHead', 'Headlights shining at you', `${SUNE} U' ${SUNE} U2 ${SUNE}`);
-defCase('cornerCycle', 'Three corners, one anchor', "U R U' L' U R' U' L");
+defCase('cornerCycle', 'Three corners, one anchor', "R' F R' B2 R F' R' B2 R2");
 defCase('edgeCycle', 'Three edges, one anchor', "R U' R U R U R U' R' U' R2");
 
 function caseCard(id, desc, note) {
@@ -1241,7 +1274,8 @@ const CONTENT = [
 <h3 style="font-size:19px;margin-top:20px">The road ahead</h3>
 <p>You will build the cube in layers, bottom to top: white edges (stages 1&ndash;2), white corners (3), the middle ring (4), then the yellow top in four short steps (5&ndash;8). Early stages are freestyle; later ones each lean on one short algorithm you repeat until the case is gone.</p>
 <p>The stage chips above the lesson watch your cube. A green check means that stage&rsquo;s goal is currently true on the cube in the sandbox; the gold ring marks the stage to work on next. Scramble the cube and the checks will tell you exactly where to jump in.</p>
-<div class="notegold"><p><strong>How to practice each lesson:</strong> load a position, press <em>Step</em> to walk the fix one turn at a time, then load it again and try the moves yourself with the buttons or keyboard. When it feels boring, you own it.</p></div>`,
+<div class="notegold"><p><strong>How to practice each lesson:</strong> load a position, press <em>Step</em> to walk the fix one turn at a time, then load it again and try the moves yourself with the buttons or keyboard. When it feels boring, you own it.</p>
+<p><strong>Truly stuck mid-solve?</strong> The <em>What&rsquo;s my next move?</em> button under the cube reads your exact position and hands you the next short sequence with the reasoning &mdash; step through it, then ask again. It follows this tutorial&rsquo;s method, stage by stage.</p></div>`,
 
 /* 1 ---------------------------------------------------------- */
 `<p class="eyebrow">Stage 1</p>
@@ -1373,15 +1407,15 @@ ${caseCard('ollHead', 'Two back corners are already yellow, and the two front co
 <p>A corner is <em>placed</em> when its two side stickers match the two faces it touches (a green-red corner between the green and red faces). Spin the top layer and look for placed corners:</p>
 <ol>
   <li>Turn <span class="alg">U</span> until at least one corner is placed.</li>
-  <li>Hold that corner at the <strong>front-right</strong> &mdash; it&rsquo;s your anchor.</li>
-  <li>Run <span class="alg">U R U' L' U R' U' L</span>. The other three corners rotate around the anchor. Once or twice does it.</li>
+  <li>Hold that corner at the <strong>front-left</strong> &mdash; it&rsquo;s your anchor.</li>
+  <li>Run <span class="alg">R' F R' B2 R F' R' B2 R2</span>. The other three corners cycle around the anchor without twisting, so your yellow face survives untouched. Once or twice does it.</li>
 </ol>
-${caseCard('cornerCycle', 'The front-right corner is placed; the other three are cycled one spot around. One round of the algorithm sets all four.', 'Run it from the wrong grip and it simply cycles them elsewhere &mdash; the anchor is everything.')}
+${caseCard('cornerCycle', 'The front-left corner is placed; the other three are cycled one seat around. One round of the algorithm sets all four.', 'Run it from the wrong grip and it simply cycles them elsewhere &mdash; the anchor is everything.')}
 <details class="stuck"><summary>Stuck? Corner placement troubleshooting</summary>
 <ul>
-  <li><strong>No corner is placed at any top-layer rotation.</strong> Run the algorithm once from any grip &mdash; afterwards, one corner will be placeable. Spin, anchor, go again.</li>
-  <li><strong>Two corners placed, two swapped.</strong> Same cure: run it once from any grip, re-scan &mdash; the position reshuffles into a one-anchor case.</li>
-  <li><strong>&ldquo;It scrambled my yellow face!&rdquo;</strong> Check mid-sequence, sure &mdash; but let it finish. Complete rounds preserve the yellow face and both bottom layers.</li>
+  <li><strong>No corner is placed at any top-layer rotation.</strong> Run the algorithm once from any grip &mdash; afterwards, re-scan. Spin, anchor, go again.</li>
+  <li><strong>Two corners placed, two swapped.</strong> Spin the top a quarter turn and re-scan from the new alignment &mdash; a single-anchor case will appear (if not immediately, run the algorithm once and look again).</li>
+  <li><strong>&ldquo;It scrambled my yellow face!&rdquo;</strong> It can&rsquo;t &mdash; this cycle never twists a corner. If yellow broke, a turn slipped mid-sequence; reload the case and Step through it.</li>
 </ul>
 </details>`,
 
@@ -1456,6 +1490,361 @@ const notationChips = document.getElementById('notationChips');
   attachPreview(b, t);
   notationChips.appendChild(b);
 });
+
+/* ================= COACH SOLVER (portable block) ================= */
+const COACH_FACE_OF_COLOR = { G: 'F', B: 'B', R: 'R', O: 'L', Y: 'U', W: 'D' };
+const COACH_DIR_OF_FACE = { F: [0, 0, 1], B: [0, 0, -1], R: [1, 0, 0], L: [-1, 0, 0], U: [0, 1, 0], D: [0, -1, 0] };
+const COACH_CYCLE = ['F', 'R', 'B', 'L'];
+const COACH_NAME = { W: 'white', Y: 'yellow', G: 'green', R: 'red', B: 'blue', O: 'orange' };
+function coachClone(cs) { return cs.map(c => ({ pos: c.pos.slice(), st: { ...c.st } })); }
+function coachApply(cs, toks) { for (const t of toks) commitToken(cs, t); return cs; }
+function coachUs(k) { return [[], ['U'], ['U2'], ["U'"]][((k % 4) + 4) % 4]; }
+function coachSigma(j) {
+  const m = { U: 'U', D: 'D' };
+  for (let i = 0; i < 4; i++) m[COACH_CYCLE[i]] = COACH_CYCLE[(i + j) % 4];
+  return m;
+}
+function coachMap(algStr, j) {
+  const m = coachSigma(j);
+  return algStr.split(' ').map(t => m[t[0]] + t.slice(1));
+}
+function coachPieceSolved(c) { return Object.entries(c.st).every(([k, col]) => DIRCOLOR[k] === col); }
+function coachFind(cs, colors) {
+  return cs.find(c => {
+    const v = Object.values(c.st);
+    return v.length === colors.length && colors.every(col => v.includes(col));
+  });
+}
+function coachStickerDir(c, color) {
+  for (const [k, col] of Object.entries(c.st)) if (col === color) return k.split(',').map(Number);
+}
+function coachRotU(v, k) { let r = v.slice(); for (let i = 0; i < k; i++) r = rotVec(r, 'y', -1); return r; }
+function coachEq(a, b) { return a[0] === b[0] && a[1] === b[1] && a[2] === b[2]; }
+
+// ---- stage 1+2: white cross (daisy technique per edge) ----
+function coachCross(cs) {
+  for (const col of ['G', 'R', 'B', 'O']) {
+    const E = coachFind(cs, ['W', col]);
+    if (coachPieceSolved(E)) continue;
+    const C = COACH_FACE_OF_COLOR[col];
+    const cDir = COACH_DIR_OF_FACE[C];
+    const name = `white-${COACH_NAME[col]} edge`;
+    const wd = coachStickerDir(E, 'W');
+    const [x, y, z] = E.pos;
+    if (y === 1) {
+      if (wd[1] === 1) {
+        // petal: align side color over its center, then drop
+        const sd = coachStickerDir(E, col);
+        let k = 0; while (k < 4 && !coachEq(coachRotU(sd, k), cDir)) k++;
+        return {
+          title: `Cross: plant the ${name}`,
+          why: `It's a petal on top. Spin the top until its ${COACH_NAME[col]} sticker sits over the ${COACH_NAME[col]} center, then a half turn of that face drops it into the cross.`,
+          moves: [...coachUs(k), C + '2'],
+        };
+      }
+      // white faces sideways in the top layer: park it over its own column, slide it down
+      let k = 0; while (k < 4 && !coachEq(coachRotU(wd, k), cDir)) k++;
+      return {
+        title: `Daisy: free the ${name}`,
+        why: `Its white sticker faces sideways on top, so it can't be a petal yet. Park it over the ${COACH_NAME[col]} face and turn that face once — it slides into the middle layer where it's easy to lift properly.`,
+        moves: [...coachUs(k), C],
+      };
+    }
+    if (y === 0) {
+      // middle layer: lift via the face holding its colored sticker
+      const other = coachStickerDir(E, col);
+      const Y = Object.keys(COACH_DIR_OF_FACE).find(f => coachEq(COACH_DIR_OF_FACE[f], other));
+      let lift = null;
+      for (const q of [Y, Y + "'"]) {
+        const t = coachClone(cs); coachApply(t, [q]);
+        const e2 = coachFind(t, ['W', col]);
+        if (e2.pos[1] === 1 && coachStickerDir(e2, 'W')[1] === 1) { lift = q; break; }
+      }
+      const yDown = atPos(cs, ...COACH_DIR_OF_FACE[Y].map((v, i) => i === 1 ? -1 : v));
+      const protect = coachPieceSolved(yDown) && Object.keys(yDown.st).length === 2;
+      if (protect) {
+        const undo = lift.endsWith("'") ? lift[0] : lift + "'";
+        return {
+          title: `Daisy: lift the ${name}`,
+          why: `It's in the middle layer. Lift it to the top with the ${COACH_NAME[col]} face's column — then tuck the new petal aside and turn the face back, so the cross edge already planted there isn't lost.`,
+          moves: [lift, 'U', undo],
+        };
+      }
+      return {
+        title: `Daisy: lift the ${name}`,
+        why: `It's in the middle layer. Turn the face its ${COACH_NAME[col]} sticker touches until the edge reaches the top as a petal.`,
+        moves: [lift],
+      };
+    }
+    // bottom layer
+    if (wd[1] === -1) {
+      const sd = coachStickerDir(E, col);
+      const X = Object.keys(COACH_DIR_OF_FACE).find(f => coachEq(COACH_DIR_OF_FACE[f], sd));
+      return {
+        title: `Daisy: lift the ${name}`,
+        why: `It's on the bottom but under the wrong center. A half turn of the ${COACH_NAME[DIRCOLOR[sd.join(',')]]} face sends it straight up as a petal.`,
+        moves: [X + '2'],
+      };
+    }
+    const X = Object.keys(COACH_DIR_OF_FACE).find(f => coachEq(COACH_DIR_OF_FACE[f], wd));
+    return {
+      title: `Daisy: free the ${name}`,
+      why: `It's in the bottom layer with white facing sideways. One turn of that face brings it into the middle layer, where it can be lifted.`,
+      moves: [X],
+    };
+  }
+  return null;
+}
+
+// ---- stage 3: first-layer corners ----
+const COACH_SLOT_TRIGGER = { '1,1': 'R', '-1,1': 'F', '-1,-1': 'L', '1,-1': 'B' }; // key: x,z of D slot
+function coachCorners(cs) {
+  for (const pair of [['G', 'R'], ['R', 'B'], ['B', 'O'], ['O', 'G']]) {
+    const K = coachFind(cs, ['W', ...pair]);
+    if (coachPieceSolved(K)) continue;
+    const name = `white-${COACH_NAME[pair[0]]}-${COACH_NAME[pair[1]]} corner`;
+    const hx = COACH_DIR_OF_FACE[COACH_FACE_OF_COLOR[pair[0]]];
+    const hz = COACH_DIR_OF_FACE[COACH_FACE_OF_COLOR[pair[1]]];
+    const home = [hx[0] + hz[0], -1, hx[2] + hz[2]];
+    const [x, y, z] = K.pos;
+    if (y === -1) {
+      const X = COACH_SLOT_TRIGGER[`${x},${z}`];
+      return {
+        title: `Corners: pop out the ${name}`,
+        why: `It's in the bottom layer but wrong (wrong slot or twisted). One right-hand trigger on that slot pops it up to the top layer, where it can be placed properly.`,
+        moves: [X, 'U', X + "'", "U'"],
+      };
+    }
+    // in U layer: park above home, then trigger until seated
+    let k = 0;
+    while (k < 4) {
+      if (coachEq(coachRotU(K.pos, k), [home[0], 1, home[2]])) break;
+      k++;
+    }
+    const X = COACH_SLOT_TRIGGER[`${home[0]},${home[2]}`];
+    const trig = [X, 'U', X + "'", "U'"];
+    let n = 0;
+    const t = coachClone(cs); coachApply(t, coachUs(k));
+    for (let i = 1; i <= 5; i++) {
+      coachApply(t, trig);
+      if (coachPieceSolved(coachFind(t, ['W', ...pair]))) { n = i; break; }
+    }
+    if (!n) return null; // should never happen; harness asserts
+    const moves = [...coachUs(k)];
+    for (let i = 0; i < n; i++) moves.push(...trig);
+    return {
+      title: `Corners: seat the ${name}`,
+      why: `Park it directly above its home slot (between the ${COACH_NAME[pair[0]]} and ${COACH_NAME[pair[1]]} faces), then run the right-hand trigger on that slot ${n} time${n > 1 ? 's' : ''} — it drops in and rights itself.`,
+      moves,
+    };
+  }
+  return null;
+}
+
+// ---- stage 4: middle edges ----
+const COACH_RIGHT_INSERT = "U R U' R' U' F' U F";
+const COACH_LEFT_INSERT = "U' L' U L U F U' F'";
+function coachMiddle(cs) {
+  for (const pair of [['G', 'R'], ['R', 'B'], ['B', 'O'], ['O', 'G']]) {
+    const E = coachFind(cs, pair);
+    if (coachPieceSolved(E)) continue;
+    const name = `${COACH_NAME[pair[0]]}-${COACH_NAME[pair[1]]} edge`;
+    const [x, y, z] = E.pos;
+    if (y === 1) {
+      const up = Object.entries(E.st).find(([k]) => k === '0,1,0');
+      const cu = up[1];
+      const ch = pair.find(c => c !== cu);
+      const X = COACH_FACE_OF_COLOR[ch];
+      const dh = coachStickerDir(E, ch);
+      let k = 0; while (k < 4 && !coachEq(coachRotU(dh, k), COACH_DIR_OF_FACE[X])) k++;
+      const j = COACH_CYCLE.indexOf(X);
+      const rightOfX = COACH_CYCLE[(j + 1) % 4];
+      const goRight = COACH_FACE_OF_COLOR[cu] === rightOfX;
+      const alg = coachMap(goRight ? COACH_RIGHT_INSERT : COACH_LEFT_INSERT, j);
+      return {
+        title: `Middle: insert the ${name}`,
+        why: `Spin the top until its ${COACH_NAME[ch]} sticker matches the ${COACH_NAME[ch]} center. Its top sticker is ${COACH_NAME[cu]}, which matches the center on the ${goRight ? 'right' : 'left'} — so send it ${goRight ? 'right' : 'left'}.`,
+        moves: [...coachUs(k), ...alg],
+      };
+    }
+    // stuck in a middle slot (wrong slot or flipped): evict with the insert on that slot
+    const slotFaces = [];
+    if (z === 1) slotFaces.push('F'); if (z === -1) slotFaces.push('B');
+    if (x === 1) slotFaces.push('R'); if (x === -1) slotFaces.push('L');
+    const X = COACH_CYCLE.find(f => slotFaces.includes(f) && slotFaces.includes(COACH_CYCLE[(COACH_CYCLE.indexOf(f) + 1) % 4]));
+    const alg = coachMap(COACH_RIGHT_INSERT, COACH_CYCLE.indexOf(X));
+    return {
+      title: `Middle: evict the ${name}`,
+      why: `It's sitting in a middle slot the wrong way. Run the insert on that slot — whatever's up top drops in and the ${name} pops out, ready to place properly.`,
+      moves: alg,
+    };
+  }
+  return null;
+}
+
+// ---- stage 5: yellow cross ----
+const COACH_LINE = "F R U R' U' F'";
+const COACH_L = "F U R U' R' F'";
+function coachYellowEdgeFaces(cs) {
+  return COACH_CYCLE.filter(X => {
+    const d = COACH_DIR_OF_FACE[X];
+    return atPos(cs, d[0], 1, d[2]).st['0,1,0'] === 'Y';
+  });
+}
+function coachYellowCross(cs) {
+  const ys = coachYellowEdgeFaces(cs);
+  if (ys.length === 4) return null;
+  if (ys.length === 0) {
+    return {
+      title: 'Yellow cross: the Dot',
+      why: 'No yellow edges are up yet. Run the six-mover from any grip — a shape will appear, and the coach will aim the next one.',
+      moves: COACH_LINE.split(' '),
+    };
+  }
+  // two up: line (opposite) or L (adjacent)
+  const opposite = (COACH_CYCLE.indexOf(ys[0]) + 2) % 4 === COACH_CYCLE.indexOf(ys[1]);
+  for (let k = 0; k < 4; k++) {
+    const t = coachClone(cs); coachApply(t, coachUs(k));
+    const y2 = coachYellowEdgeFaces(t);
+    if (opposite) {
+      if (y2.includes('L') && y2.includes('R')) {
+        return {
+          title: 'Yellow cross: the Line',
+          why: 'Two yellow edges form a line. Spin the top so it runs left-to-right, then the line six-mover finishes the cross.',
+          moves: [...coachUs(k), ...COACH_LINE.split(' ')],
+        };
+      }
+    } else if (y2.includes('B') && y2.includes('L')) {
+      return {
+        title: 'Yellow cross: the L-shape',
+        why: 'Two neighboring yellow edges form an L. Spin the top to hug it into the back-left corner, then the L six-mover finishes the cross.',
+        moves: [...coachUs(k), ...COACH_L.split(' ')],
+      };
+    }
+  }
+  return null;
+}
+
+// ---- stage 6: yellow face ----
+const COACH_SUNE = "R U R' U R U2 R'";
+function coachCornersUp(cs) {
+  return [[-1, -1], [1, -1], [-1, 1], [1, 1]].filter(([x, z]) => atPos(cs, x, 1, z).st['0,1,0'] === 'Y').length;
+}
+function coachYellowFace(cs) {
+  const n = coachCornersUp(cs);
+  if (n === 4) return null;
+  // breadth-first over (U-aim + Sune) legs: pick the first leg of a shortest full solution
+  let best = null;
+  let frontier = [{ cs, first: null }];
+  outer:
+  for (let depth = 1; depth <= 4 && !best; depth++) {
+    const next = [];
+    for (const node of frontier) {
+      for (let k = 0; k < 4; k++) {
+        const t = coachClone(node.cs);
+        coachApply(t, [...coachUs(k), ...COACH_SUNE.split(' ')]);
+        const first = node.first === null ? k : node.first;
+        if (coachCornersUp(t) === 4) { best = { k: first }; break outer; }
+        next.push({ cs: t, first });
+      }
+    }
+    frontier = next;
+  }
+  if (!best) best = { k: 0 };
+  const patterns = { 1: 'the Fish', 0: 'a no-corners pattern', 2: 'a two-corner pattern' };
+  return {
+    title: `Yellow face: ${patterns[n] || 'Sune time'}`,
+    why: n === 1
+      ? 'One corner shows yellow. Aim with top turns, then Sune — done right, the whole face goes yellow.'
+      : `${n === 0 ? 'No corners show' : 'Two corners show'} yellow yet. Aim with top turns and Sune — the coach picked the aim that makes the most progress; ask again after.`,
+    moves: [...coachUs(best.k), ...COACH_SUNE.split(' ')],
+  };
+}
+
+// ---- stage 7: corner places ----
+// A-perm (face turns only): cycles three U corners WITHOUT twisting them —
+// safe after the yellow face is done. Fixes the front-left corner (between L and F).
+const COACH_CORNER_CYCLE = "R' F R' B2 R F' R' B2 R2";
+function coachPlacedCorners(cs) {
+  return [[-1, -1], [1, -1], [-1, 1], [1, 1]].filter(([x, z]) => {
+    const c = atPos(cs, x, 1, z);
+    const want = ['Y', DIRCOLOR[`${x},0,0`], DIRCOLOR[`0,0,${z}`]].sort().join('');
+    return Object.values(c.st).sort().join('') === want;
+  });
+}
+function coachCornerPerm(cs) {
+  if (coachPlacedCorners(cs).length === 4) return null;
+  // Rank top-layer aims by what 3-cycles can finish: 4 placed (done) beats exactly 1
+  // (anchored cycle) beats 0 (cycle from anywhere). NEVER settle at 2 — a corner swap
+  // is odd and no amount of 3-cycling resolves it; a quarter-turn aim changes parity.
+  const byCount = {};
+  for (let k = 0; k < 4; k++) {
+    const t = coachClone(cs); coachApply(t, coachUs(k));
+    const placed = coachPlacedCorners(t);
+    if (byCount[placed.length] === undefined) byCount[placed.length] = { k, placed };
+  }
+  if (byCount[4]) {
+    return {
+      title: 'Corners: just spin the top',
+      why: 'All four corners are already in the right order — turn the top layer until they line up with the centers.',
+      moves: coachUs(byCount[4].k),
+    };
+  }
+  const best = byCount[1] || null;
+  if (!best) {
+    const z = byCount[0];
+    return {
+      title: 'Corners: shake the order loose',
+      why: 'No single corner can be made the anchor from here. Run the A-perm once from this aim — afterwards one corner will anchor properly.',
+      moves: [...coachUs(z.k), ...COACH_CORNER_CYCLE.split(' ')],
+    };
+  }
+  // anchor a placed corner where the base alg's fixed corner sits (front-left, X = L)
+  const [ax, az] = best.placed[0];
+  const i = COACH_CYCLE.findIndex(X => {
+    const a = COACH_DIR_OF_FACE[X], b = COACH_DIR_OF_FACE[COACH_CYCLE[(COACH_CYCLE.indexOf(X) + 1) % 4]];
+    return a[0] + b[0] === ax && a[2] + b[2] === az;
+  });
+  const j = (i - COACH_CYCLE.indexOf('L') + 4) % 4;
+  return {
+    title: 'Corners: cycle around the anchor',
+    why: 'One corner sits between its two matching faces — that\'s the anchor. The A-perm rotates the other three around it without disturbing the yellow face; run it and ask again (it sometimes takes two rounds).',
+    moves: [...coachUs(best.k), ...coachMap(COACH_CORNER_CYCLE, j)],
+  };
+}
+
+// ---- stage 8: last edges ----
+const COACH_EDGE_CYCLE = "R U' R U R U R U' R' U' R2";
+function coachSolvedUEdges(cs) {
+  return COACH_CYCLE.filter(X => {
+    const d = COACH_DIR_OF_FACE[X];
+    return coachPieceSolved(atPos(cs, d[0], 1, d[2]));
+  });
+}
+function coachEdgePerm(cs) {
+  const done = coachSolvedUEdges(cs);
+  if (done.length === 4) return null;
+  if (done.length === 0) {
+    return {
+      title: 'Last edges: break the deadlock',
+      why: 'No top edge matches its center. Run the edge cycle once from anywhere — a solved edge will appear.',
+      moves: COACH_EDGE_CYCLE.split(' '),
+    };
+  }
+  const anchor = done[0]; // base alg fixes the UB edge (back)
+  const j = (COACH_CYCLE.indexOf(anchor) - COACH_CYCLE.indexOf('B') + 4) % 4;
+  return {
+    title: 'Last edges: cycle around the anchor',
+    why: `The ${COACH_NAME[DIRCOLOR[COACH_DIR_OF_FACE[anchor].join(',')]]} edge is already home — treat it as the back. The cycle walks the other three one seat around; if they go the wrong way, run it again.`,
+    moves: coachMap(COACH_EDGE_CYCLE, j),
+  };
+}
+
+function coachNext(cs) {
+  return coachCross(cs) || coachCorners(cs) || coachMiddle(cs)
+    || coachYellowCross(cs) || coachYellowFace(cs) || coachCornerPerm(cs) || coachEdgePerm(cs);
+}
+/* ================= END COACH SOLVER ================= */
 
 /* status + celebration */
 let celebrationArmed = false;

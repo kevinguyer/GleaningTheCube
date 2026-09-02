@@ -8,6 +8,7 @@ A cheeky nod to the 1989 Christian Slater skateboarding film *Gleaming the Cube*
 
 A self-contained, zero-dependency single-page app that teaches the beginner (layer-by-layer) method with a live 3D cube:
 
+- **A coach** — the *"What's my next move?"* button reads any cube state and hands you the next short sequence with the reasoning ("your white-green edge is in the middle layer — lift it"), following the tutorial's own method stage by stage. Verified against 4,000 random scrambles.
 - **3D sandbox** — drag to orbit, turn faces with buttons or the keyboard (`U D L R F B`, Shift for reverse), scramble, undo, and type your own move sequences.
 - **Nine-stage tutorial** — notation, the Daisy, White Cross, first-layer corners, middle-layer edges, Yellow Cross, Yellow Face, corner placement, and the final edges. Each stage has loadable practice positions and a "Stuck?" troubleshooter.
 - **Sequence player** — step forward *and* backward through any algorithm, with the current move highlighted.
