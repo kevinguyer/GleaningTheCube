@@ -413,7 +413,7 @@ footer.foot {
     <div id="scene">
       <div id="cube"></div>
       <div class="turncap" id="turnCaption" hidden></div>
-      <div class="hint">drag to look around &middot; keys U D L R F B turn (Shift = reverse)</div>
+      <div class="hint">drag a sticker to turn its layer &middot; drag the background (or right-drag) to look around &middot; keys U D L R F B (Shift = reverse)</div>
     </div>
 
     <div class="statusrow">
@@ -601,20 +601,76 @@ function applyView() {
   cubeEl.style.transform = `rotateX(${view.rx}deg) rotateY(${view.ry}deg)`;
 }
 
-/* orbit */
+/* orbit + drag-to-turn */
 const scene = document.getElementById('scene');
+const DIR_KEYS = Object.keys(DIRCOLOR);
 let dragging = null;
+
+// screen-space direction of a world-space velocity under the current camera
+function screenDirOf(v) {
+  const rx = view.rx * Math.PI / 180, ry = view.ry * Math.PI / 180;
+  const x = v[0], y = -v[1], z = v[2]; // world (y up) -> CSS (y down)
+  const x1 = Math.cos(ry) * x + Math.sin(ry) * z;
+  const z1 = -Math.sin(ry) * x + Math.cos(ry) * z;
+  const y2 = Math.cos(rx) * y - Math.sin(rx) * z1;
+  return [x1, y2];
+}
+// which face turn best matches dragging the sticker (cubie idx, face normal dir) by (dx, dy)?
+function pickTurn(idx, dir, dx, dy) {
+  const p = cubies[idx].pos;
+  const nAxis = dir[0] ? 0 : dir[1] ? 1 : 2;
+  let best = null;
+  for (let a = 0; a < 3; a++) {
+    if (a === nAxis) continue;
+    const s = p[a];
+    if (s === 0) continue; // that direction is a middle slice — not a face turn
+    const token = [['R', 'L'], ['U', 'D'], ['F', 'B']][a][s === 1 ? 0 : 1];
+    const e = [0, 0, 0]; e[a] = -s; // clockwise angular velocity of that face
+    const w = p;
+    const vel = [e[1] * w[2] - e[2] * w[1], e[2] * w[0] - e[0] * w[2], e[0] * w[1] - e[1] * w[0]];
+    const sd = screenDirOf(vel);
+    const len = Math.hypot(sd[0], sd[1]) || 1;
+    const score = (dx * sd[0] + dy * sd[1]) / len;
+    if (!best || Math.abs(score) > Math.abs(best.score)) best = { token, score };
+  }
+  if (!best) return null;
+  // drag must roughly align with the turn it would trigger — don't guess on sideways flicks
+  if (Math.abs(best.score) / Math.hypot(dx, dy) < 0.35) return null;
+  return best.score >= 0 ? best.token : best.token + "'";
+}
+
+scene.addEventListener('contextmenu', e => e.preventDefault());
 scene.addEventListener('pointerdown', e => {
-  dragging = { x: e.clientX, y: e.clientY };
+  const cubieEl = e.target.closest('.cubie');
+  if (e.button === 0 && cubieEl && !animating) {
+    const idx = cubieEls.indexOf(cubieEl);
+    const faceEl = e.target.closest('.cface');
+    const j = faceEl ? [...cubieEl.children].indexOf(faceEl) : -1;
+    if (idx >= 0 && j >= 0 && cubies[idx].st[DIR_KEYS[j]]) {
+      dragging = { mode: 'turn', idx, dir: DIR_KEYS[j].split(',').map(Number), x: e.clientX, y: e.clientY, done: false };
+      scene.setPointerCapture(e.pointerId);
+      return;
+    }
+  }
+  dragging = { mode: 'orbit', x: e.clientX, y: e.clientY };
   scene.setPointerCapture(e.pointerId);
 });
 scene.addEventListener('pointermove', e => {
   if (!dragging) return;
-  view.ry += (e.clientX - dragging.x) * 0.45;
-  view.rx -= (e.clientY - dragging.y) * 0.45;
-  view.rx = Math.max(-105, Math.min(75, view.rx));
-  dragging = { x: e.clientX, y: e.clientY };
-  applyView();
+  if (dragging.mode === 'orbit') {
+    view.ry += (e.clientX - dragging.x) * 0.45;
+    view.rx -= (e.clientY - dragging.y) * 0.45;
+    view.rx = Math.max(-105, Math.min(75, view.rx));
+    dragging = { mode: 'orbit', x: e.clientX, y: e.clientY };
+    applyView();
+    return;
+  }
+  if (dragging.done) return;
+  const dx = e.clientX - dragging.x, dy = e.clientY - dragging.y;
+  if (Math.hypot(dx, dy) < 14) return;
+  dragging.done = true;
+  const token = pickTurn(dragging.idx, dragging.dir, dx, dy);
+  if (token) userMove(token);
 });
 scene.addEventListener('pointerup', () => dragging = null);
 scene.addEventListener('pointercancel', () => dragging = null);
