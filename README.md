@@ -19,7 +19,7 @@ Every algorithm and practice position was machine-verified move-by-move against 
 
 ## Running it
 
-Open `gleaning-the-cube.html` in any modern browser. That's it — no build step, no server, no dependencies (fonts load from Google Fonts and degrade gracefully offline).
+Open `index.html` in any modern browser. That's it — no build step, no server, no dependencies (fonts load from Google Fonts and degrade gracefully offline).
 
 ---
 
