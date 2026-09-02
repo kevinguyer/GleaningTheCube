@@ -106,11 +106,27 @@ header.top .tag { color: var(--muted); font-size: 15px; }
   -webkit-user-select: none;
 }
 #scene:active { cursor: grabbing; }
-#scene .hint {
-  position: absolute; bottom: 8px; left: 0; right: 0;
-  text-align: center; font-size: 12.5px; color: var(--muted);
-  pointer-events: none;
+.infobtn {
+  position: absolute; top: 8px; right: 8px;
+  width: 22px; height: 22px; border-radius: 50%; padding: 0;
+  border: 1px solid var(--line); background: var(--panel);
+  color: var(--muted); font-size: 12.5px; font-weight: 700;
+  font-family: "Bricolage Grotesque", sans-serif;
+  display: grid; place-items: center;
+  cursor: help; z-index: 6;
 }
+.infobtn:hover { border-color: var(--accent); color: var(--accent); }
+.infotip {
+  position: absolute; top: 36px; right: 8px; width: 250px;
+  background: var(--panel); border: 1px solid var(--line);
+  box-shadow: var(--shadow); border-radius: 10px;
+  padding: 10px 13px; font-size: 12.5px; line-height: 1.5; color: var(--ink);
+  opacity: 0; visibility: hidden; transition: opacity .12s;
+  z-index: 7; pointer-events: none; text-align: left;
+}
+.infobtn:hover + .infotip, .infobtn:focus-visible + .infotip { opacity: 1; visibility: visible; }
+.infotip ul { margin: 0; padding-left: 16px; }
+.infotip li { margin: 3px 0; }
 #cube {
   position: absolute; left: 50%; top: 55%;
   width: 0; height: 0;
@@ -413,7 +429,15 @@ footer.foot {
     <div id="scene">
       <div id="cube"></div>
       <div class="turncap" id="turnCaption" hidden></div>
-      <div class="hint">drag a sticker to turn its layer &middot; drag the background (or right-drag) to look around &middot; keys U D L R F B (Shift = reverse)</div>
+      <button class="infobtn" aria-label="How to interact with the cube">i</button>
+      <div class="infotip" role="tooltip">
+        <ul>
+          <li><strong>Drag a sticker</strong> to turn its layer in that direction.</li>
+          <li><strong>Drag the background</strong> &mdash; or right-drag anywhere &mdash; to look around.</li>
+          <li><strong>Keys</strong> <span class="alg">U D L R F B</span> turn; hold Shift to reverse.</li>
+          <li><strong>Hover</strong> any turn button to preview what it will do.</li>
+        </ul>
+      </div>
     </div>
 
     <div class="statusrow">
